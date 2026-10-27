@@ -1,0 +1,69 @@
+/* Glyph Loom — character sets, defaults and presets.
+ *
+ * Palette mode maps brightness to glyph colors in order: inks[0] = darkest
+ * areas … inks[inkN-1] = brightest areas, so list inks from low to high
+ * luminance. Contrast ratios (WCAG) of each glyph color on its background
+ * are noted beside every preset.
+ */
+window.GL = window.GL || {};
+
+GL.CHARSETS = {
+  classic: { ramp: ' .:-=+*#%@', name: 'Classic' },
+  dense:   { ramp: " .'`^\",:;Il!i><~+_-?][}{1)(|/tfjrxnuvczXYUJCLQ0OZmwqpdbkhao*#MW&8%B@$", name: 'Dense' },
+  blocks:  { ramp: ' ░▒▓█', name: 'Blocks' },
+  binary:  { ramp: ' 01', name: 'Binary' },
+  symbols: { ramp: ' ·+×*#', name: 'Symbols' },
+  dots:    { ramp: ' ·∙•●', name: 'Dots' },
+  slash:   { ramp: ' .-/\\X', name: 'Slash' },
+  hex:     { ramp: ' 123456789ABCDEF', name: 'Hex' },
+};
+
+GL.DEFAULTS = {
+  ramp: GL.CHARSETS.classic.ramp, cell: 12, fscale: 1.05, bold: false,
+  bright: 0, contrast: 1.2, gamma: 1, cut: 0, invert: false,
+  color: 'mono', bg: '#0A0A0A', inks: ['#FFFFFF', '#BBBBBB', '#888888', '#FFFFFF'], inkN: 1, sat: 1.2,
+  imgOpacity: 0, imgBlend: 'source-over', blend: 'source-over', inkOpacity: 1, imgGray: true,
+  patch: false, block: 6, reveal: 0, alt: 0.3, flip: 0, altSet: 'dots', seed: 7,
+  flicker: 0, label: '', labelPos: 'c', frame: 'source', size: '1080',
+};
+
+GL.PRESETS = {
+  // white 4.43:1
+  rose: { name: { vi: 'Rose', en: 'Rose' },
+    ramp: GL.CHARSETS.symbols.ramp, cell: 13, bold: true, color: 'mono', bg: '#DB2C8A',
+    inks: ['#FFFFFF', '#FFC4E3', '#FFFFFF', '#FFFFFF'], contrast: 1.35,
+    patch: true, block: 6, alt: 0.35, altSet: 'blocks', flip: 0.1, frame: '1' },
+  // violet 3.36 · coral 5.08 · amber 8.27 · cream 14.39
+  loong: { name: { vi: 'Loong', en: 'Loong' },
+    ramp: GL.CHARSETS.classic.ramp, cell: 15, bold: true, color: 'palette', bg: '#1C1838',
+    inks: ['#6A62C4', '#E8615A', '#F2A541', '#F7EBD5'], inkN: 4, contrast: 1.3, cut: 0.08,
+    label: 'LOONG_', labelPos: 'bl', frame: '1' },
+  // amber 10.86
+  amber: { name: { vi: 'Amber', en: 'Amber' },
+    ramp: GL.CHARSETS.dense.ramp, cell: 9, color: 'mono', bg: '#120D06',
+    inks: ['#FFB347', '#FFB347', '#FFB347', '#FFB347'], contrast: 1.25, flicker: 0.03 },
+  // colors come from the source
+  chroma: { name: { vi: 'Chroma', en: 'Chroma' },
+    ramp: GL.CHARSETS.dense.ramp, cell: 10, bold: true, color: 'source', sat: 1.6, bg: '#050505', contrast: 1.15 },
+  // navy 7.42 · blue 4.44
+  reseau: { name: { vi: 'Réseau', en: 'Réseau' },
+    ramp: GL.CHARSETS.slash.ramp, cell: 12, bold: true, color: 'palette', bg: '#5EE68A',
+    inks: ['#1B2A8F', '#2E46D6', '#1B2A8F', '#1B2A8F'], inkN: 2, contrast: 1.4, cut: 0.25,
+    patch: true, block: 5, alt: 0.35, altSet: 'dots', frame: '1.7778' },
+  // orange 5.57 · sky 8.50 · grey 9.74 · yellow 11.54
+  strata: { name: { vi: 'Strata', en: 'Strata' },
+    ramp: GL.CHARSETS.binary.ramp, cell: 11, bold: true, color: 'palette', bg: '#0D1022',
+    inks: ['#E8613C', '#5BB8E8', '#B8BAC4', '#F5C443'], inkN: 4, contrast: 1.3,
+    patch: true, block: 4, alt: 0.3, altSet: 'symbols', frame: '1.7778' },
+  // white 21:1 over the full-colour source image
+  layered: { name: { vi: 'Lồng ảnh', en: 'Layered' },
+    ramp: GL.CHARSETS.classic.ramp, cell: 11, bold: true, color: 'mono', bg: '#000000',
+    inks: ['#FFFFFF', '#FFFFFF', '#FFFFFF', '#FFFFFF'], imgOpacity: 0.85, imgGray: false,
+    blend: 'screen', inkOpacity: 0.9, contrast: 1.3 },
+  // ink 15.59
+  paper: { name: { vi: 'Paper', en: 'Paper' },
+    ramp: GL.CHARSETS.dense.ramp, cell: 9, color: 'mono', bg: '#EFEDE6',
+    inks: ['#151515', '#151515', '#151515', '#151515'], invert: true, contrast: 1.2 },
+};
+
+GL.DEFAULT_PRESET = 'loong';
