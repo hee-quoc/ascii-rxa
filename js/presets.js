@@ -16,6 +16,26 @@ GL.CHARSETS = {
   dots:    { ramp: ' ·∙•●', name: 'Dots' },
   slash:   { ramp: ' .-/\\X', name: 'Slash' },
   hex:     { ramp: ' 123456789ABCDEF', name: 'Hex' },
+  bars:    { ramp: ' ─╸━', name: 'Bars' },
+  shapes:  { ramp: ' ▪✕■●', name: 'Shapes' },
+};
+
+/* Glyphs drawn as geometry instead of font text, so they fill the cell
+ * edge to edge and line up into continuous bars / halftone dots.
+ * Each gets the atlas context, the cell's left/top, cell size and glyph scale. */
+GL.SHAPES = {
+  '─': (x, l, t, s, k) => { const h = s * 0.16 * k; x.fillRect(l, t + (s - h) / 2, s, h); },
+  '╸': (x, l, t, s, k) => { const h = s * 0.58 * k; x.fillRect(l, t + (s - h) / 2, s * 0.55, h); },
+  '━': (x, l, t, s, k) => { const h = s * 0.58 * k; x.fillRect(l, t + (s - h) / 2, s, h); },
+  '▪': (x, l, t, s, k) => { const w = s * 0.34 * k; x.fillRect(l + (s - w) / 2, t + (s - w) / 2, w, w); },
+  '■': (x, l, t, s, k) => { const w = s * 0.78 * k; x.fillRect(l + (s - w) / 2, t + (s - w) / 2, w, w); },
+  '●': (x, l, t, s, k) => { x.beginPath(); x.arc(l + s / 2, t + s / 2, s * 0.5 * k, 0, Math.PI * 2); x.fill(); },
+  '✕': (x, l, t, s, k) => {
+    const a = s * 0.36 * k, c = [l + s / 2, t + s / 2];
+    x.save(); x.strokeStyle = '#fff'; x.lineWidth = s * 0.2 * k; x.lineCap = 'square'; x.beginPath();
+    x.moveTo(c[0] - a, c[1] - a); x.lineTo(c[0] + a, c[1] + a); x.moveTo(c[0] + a, c[1] - a); x.lineTo(c[0] - a, c[1] + a);
+    x.stroke(); x.restore();
+  },
 };
 
 GL.DEFAULTS = {
@@ -24,7 +44,7 @@ GL.DEFAULTS = {
   color: 'mono', bg: '#0A0A0A', inks: ['#FFFFFF', '#BBBBBB', '#888888', '#FFFFFF'], inkN: 1, sat: 1.2,
   imgOpacity: 0, imgBlend: 'source-over', blend: 'source-over', inkOpacity: 1, imgGray: true,
   patch: false, block: 6, reveal: 0, alt: 0.3, flip: 0, altSet: 'dots', seed: 7,
-  flicker: 0, label: '', labelPos: 'c', frame: 'source', size: '1080',
+  flicker: 0, grain: 0, label: '', labelPos: 'c', frame: 'source', size: '1080',
 };
 
 GL.PRESETS = {
@@ -64,6 +84,19 @@ GL.PRESETS = {
   paper: { name: { vi: 'Paper', en: 'Paper' },
     ramp: GL.CHARSETS.dense.ramp, cell: 9, color: 'mono', bg: '#EFEDE6',
     inks: ['#151515', '#151515', '#151515', '#151515'], invert: true, contrast: 1.2 },
+  // graphite 12.59 — plain keyboard ASCII on cream
+  linen: { name: { vi: 'Linen', en: 'Linen' },
+    ramp: ' -=+#', cell: 9, color: 'mono', bg: '#F2F0E9',
+    inks: ['#2A2A2A', '#2A2A2A', '#2A2A2A', '#2A2A2A'], contrast: 1.5, cut: 0.12 },
+  // black 14.67 — horizontal scan bars over a grainy grey
+  scan: { name: { vi: 'Scan', en: 'Scan' },
+    ramp: GL.CHARSETS.bars.ramp, cell: 8, color: 'mono', bg: '#E3E3DF',
+    inks: ['#111111', '#111111', '#111111', '#111111'], contrast: 1.6, cut: 0.1, grain: 0.18, frame: '1.7778' },
+  // green 6.85 — halftone dots, squares and crosses
+  moss: { name: { vi: 'Moss', en: 'Moss' },
+    ramp: GL.CHARSETS.shapes.ramp, cell: 18, color: 'mono', bg: '#EDEDE8',
+    inks: ['#1E5A47', '#1E5A47', '#1E5A47', '#1E5A47'], contrast: 1.5, cut: 0.1, grain: 0.08,
+    label: '2025', labelPos: 'vl', frame: '1.7778' },
 };
 
 GL.DEFAULT_PRESET = 'loong';
