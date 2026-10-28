@@ -313,11 +313,10 @@ for (const [id, p] of Object.entries(PRESETS)) {
   pbox.appendChild(b);
 }
 function applyPreset(id) {
+  // presets only change the look; the frame ratio and output width stay as the user set them
   const keep = { frame: state.frame, size: state.size };
   const { name, ...p } = PRESETS[id];
-  state = clone({ ...DEFAULTS, ...p });
-  if (!p.frame) state.frame = keep.frame;
-  state.size = keep.size;
+  state = clone({ ...DEFAULTS, ...p, ...keep });
   activePreset = id; changed(true);
 }
 
