@@ -52,12 +52,12 @@ GL.PRESETS = {
   rose: { name: { vi: 'Rose', en: 'Rose' },
     ramp: GL.CHARSETS.symbols.ramp, cell: 13, bold: true, color: 'mono', bg: '#DB2C8A',
     inks: ['#FFFFFF', '#FFC4E3', '#FFFFFF', '#FFFFFF'], contrast: 1.35,
-    patch: true, block: 6, alt: 0.35, altSet: 'blocks', flip: 0.1, frame: '1' },
+    patch: true, block: 6, alt: 0.35, altSet: 'blocks', flip: 0.1 },
   // violet 3.36 · coral 5.08 · amber 8.27 · cream 14.39
   loong: { name: { vi: 'Loong', en: 'Loong' },
     ramp: GL.CHARSETS.classic.ramp, cell: 15, bold: true, color: 'palette', bg: '#1C1838',
     inks: ['#6A62C4', '#E8615A', '#F2A541', '#F7EBD5'], inkN: 4, contrast: 1.3, cut: 0.08,
-    label: 'LOONG_', labelPos: 'bl', frame: '1' },
+    label: 'LOONG_', labelPos: 'bl' },
   // amber 10.86
   amber: { name: { vi: 'Amber', en: 'Amber' },
     ramp: GL.CHARSETS.dense.ramp, cell: 9, color: 'mono', bg: '#120D06',
@@ -69,12 +69,12 @@ GL.PRESETS = {
   reseau: { name: { vi: 'Réseau', en: 'Réseau' },
     ramp: GL.CHARSETS.slash.ramp, cell: 12, bold: true, color: 'palette', bg: '#5EE68A',
     inks: ['#1B2A8F', '#2E46D6', '#1B2A8F', '#1B2A8F'], inkN: 2, contrast: 1.4, cut: 0.25,
-    patch: true, block: 5, alt: 0.35, altSet: 'dots', frame: '1.7778' },
+    patch: true, block: 5, alt: 0.35, altSet: 'dots' },
   // orange 5.57 · sky 8.50 · grey 9.74 · yellow 11.54
   strata: { name: { vi: 'Strata', en: 'Strata' },
     ramp: GL.CHARSETS.binary.ramp, cell: 11, bold: true, color: 'palette', bg: '#0D1022',
     inks: ['#E8613C', '#5BB8E8', '#B8BAC4', '#F5C443'], inkN: 4, contrast: 1.3,
-    patch: true, block: 4, alt: 0.3, altSet: 'symbols', frame: '1.7778' },
+    patch: true, block: 4, alt: 0.3, altSet: 'symbols' },
   // white 21:1 over the full-colour source image
   layered: { name: { vi: 'Lồng ảnh', en: 'Layered' },
     ramp: GL.CHARSETS.classic.ramp, cell: 11, bold: true, color: 'mono', bg: '#000000',
@@ -91,12 +91,12 @@ GL.PRESETS = {
   // black 14.67 — horizontal scan bars over a grainy grey
   scan: { name: { vi: 'Scan', en: 'Scan' },
     ramp: GL.CHARSETS.bars.ramp, cell: 8, color: 'mono', bg: '#E3E3DF',
-    inks: ['#111111', '#111111', '#111111', '#111111'], contrast: 1.6, cut: 0.1, grain: 0.18, frame: '1.7778' },
+    inks: ['#111111', '#111111', '#111111', '#111111'], contrast: 1.6, cut: 0.1, grain: 0.18 },
   // green 6.85 — halftone dots, squares and crosses
   moss: { name: { vi: 'Moss', en: 'Moss' },
     ramp: GL.CHARSETS.shapes.ramp, cell: 18, color: 'mono', bg: '#EDEDE8',
     inks: ['#1E5A47', '#1E5A47', '#1E5A47', '#1E5A47'], contrast: 1.5, cut: 0.1, grain: 0.08,
-    label: '2025', labelPos: 'vl', frame: '1.7778' },
+    label: '2025', labelPos: 'vl' },
 };
 
 GL.DEFAULT_PRESET = 'loong';
