@@ -45,8 +45,13 @@ js/app.js         engine render + xử lý UI
 | Strata | `#0D1022` | `#E8613C` `#5BB8E8` `#B8BAC4` `#F5C443` | 5.57 · 8.50 · 9.74 · 11.54 |
 | Lồng ảnh / Layered | `#000000` | `#FFFFFF` | 21.00 |
 | Paper | `#EFEDE6` | `#151515` | 15.59 |
+| Linen | `#F2F0E9` | `#2A2A2A` | 12.59 |
+| Scan | `#E3E3DF` | `#111111` | 14.67 |
+| Moss | `#EDEDE8` | `#1E5A47` | 6.85 |
 
 Thêm biến thể mới: thêm một mục vào `GL.PRESETS` trong `js/presets.js`.
+
+Bộ ký tự **Bars** và **Shapes** không vẽ bằng font mà vẽ bằng hình học (`GL.SHAPES`), nên thanh ngang và chấm tròn lấp kín ô và nối liền nhau. Thanh **Hạt nhiễu / Grain** phủ một lớp nhiễu tĩnh lên ảnh xuất.
 
 ## Ghi chú
 

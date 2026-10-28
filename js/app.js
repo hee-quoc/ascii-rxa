@@ -86,7 +86,11 @@ function getAtlas(name, ramp) {
   for (let i = 0; i < L; i++) {
     const ch = chars[i] || ' ';
     empty[i] = !ch.trim();
-    if (!empty[i]) { x.save(); x.beginPath(); x.rect(i * s, 0, s, s); x.clip(); x.fillText(ch, i * s + s / 2, s / 2 + s * 0.05); x.restore(); }
+    if (empty[i]) continue;
+    x.save(); x.beginPath(); x.rect(i * s, 0, s, s); x.clip();
+    if (GL.SHAPES[ch]) GL.SHAPES[ch](x, i * s, 0, s, state.fscale);
+    else x.fillText(ch, i * s + s / 2, s / 2 + s * 0.05);
+    x.restore();
   }
   return atlasCache[name] = { key, c, L, empty };
 }
@@ -99,6 +103,16 @@ const maskC = document.createElement('canvas'), mctx = maskC.getContext('2d');
 const inkC = document.createElement('canvas'), ictx = inkC.getContext('2d');
 const imgC = document.createElement('canvas'), gctx = imgC.getContext('2d');
 let dirty = true;
+// static film grain, regenerated only when the output size changes
+const grainC = document.createElement('canvas');
+function getGrain(W, H) {
+  if (grainC.width === W && grainC.height === H) return grainC;
+  grainC.width = W; grainC.height = H;
+  const g = grainC.getContext('2d'), im = g.createImageData(W, H), a = im.data;
+  for (let i = 0; i < a.length; i += 4) { const v = Math.random() < 0.5 ? 0 : 255; a[i] = a[i + 1] = a[i + 2] = v; a[i + 3] = Math.random() * 255; }
+  g.putImageData(im, 0, 0);
+  return grainC;
+}
 const hex = h => { const n = parseInt(h.slice(1), 16); return [n >> 16 & 255, n >> 8 & 255, n & 255]; };
 function hash(x, y, s) { let h = Math.imul(x, 374761393) ^ Math.imul(y, 668265263) ^ Math.imul(s, 1442695041); h = Math.imul(h ^ (h >>> 13), 1274126177); return ((h ^ (h >>> 16)) >>> 0) / 4294967296; }
 function setSize(c, w, h) { if (c.width !== w || c.height !== h) { c.width = w; c.height = h; } }
@@ -175,6 +189,7 @@ function render(time) {
   if (state.imgOpacity > 0) { octx.globalAlpha = state.imgOpacity; octx.globalCompositeOperation = state.imgBlend; octx.drawImage(imgC, 0, 0); }
   octx.globalAlpha = state.inkOpacity; octx.globalCompositeOperation = state.blend; octx.drawImage(inkC, 0, 0);
   octx.globalAlpha = 1; octx.globalCompositeOperation = 'source-over';
+  if (state.grain > 0) { octx.globalAlpha = state.grain; octx.drawImage(getGrain(W, H), 0, 0); octx.globalAlpha = 1; }
   if (state.patch && state.reveal > 0) {
     octx.save(); octx.beginPath();
     for (let by = 0; by < brows; by++) for (let bx = 0; bx < bcols; bx++) if (kinds[by * bcols + bx] === 2) octx.rect(bx * blk * s, by * blk * s, blk * s, blk * s);
@@ -189,6 +204,14 @@ function updateMeta() {
   $('#meta').textContent = `${lastInfo.cols} × ${lastInfo.rows} ${t('chars')} · ${lastInfo.W} × ${lastInfo.H} px · ${kind}`;
 }
 function drawLabel(W, H) {
+  if (state.labelPos === 'vl') { // small vertical caption on the left edge, no box
+    const fs = Math.round(W * 0.016);
+    octx.save(); octx.translate(W * 0.022, H / 2); octx.rotate(-Math.PI / 2);
+    octx.font = `700 ${fs}px "Geist Mono", ui-monospace, monospace`;
+    octx.textAlign = 'center'; octx.textBaseline = 'middle'; octx.fillStyle = state.inks[0];
+    octx.fillText(state.label, 0, 0); octx.restore();
+    return;
+  }
   const fs = Math.round(W * 0.052), padX = fs * 0.45, padY = fs * 0.3;
   octx.font = `500 ${fs}px "Geist Mono", ui-monospace, monospace`;
   octx.textBaseline = 'middle';
@@ -218,7 +241,7 @@ function loop(time) {
 
 /* ---------- UI ---------- */
 const INT_KEYS = ['cell', 'inkN', 'block'];
-const PCT_KEYS = ['cut', 'imgOpacity', 'inkOpacity', 'reveal', 'alt', 'flip', 'flicker'];
+const PCT_KEYS = ['cut', 'imgOpacity', 'inkOpacity', 'reveal', 'alt', 'flip', 'flicker', 'grain'];
 function fmt(k, v) {
   if (typeof v !== 'number') return v;
   if (INT_KEYS.includes(k)) return String(v);
