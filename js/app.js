@@ -75,24 +75,29 @@ function drawCover(ctx, el, sw, sh, w, h) {
 /* ---------- glyph atlas ---------- */
 const atlasCache = {};
 function getAtlas(name, ramp) {
-  const chars = [...ramp], s = state.cell, L = Math.max(1, chars.length);
+  const toks = GL.parseRamp(ramp), s = state.cell, L = Math.max(1, toks.length);
   const key = [ramp, s, state.fscale, state.bold].join('|');
   if (atlasCache[name] && atlasCache[name].key === key) return atlasCache[name];
   const c = document.createElement('canvas'); c.width = s * L; c.height = s;
   const x = c.getContext('2d');
   x.fillStyle = '#fff'; x.textAlign = 'center'; x.textBaseline = 'middle';
   x.font = `${state.bold ? 700 : 500} ${s * state.fscale}px "Geist Mono", ui-monospace, Menlo, monospace`;
-  const empty = [];
+  // gi[i] = order of level i among the visible glyphs, G = how many there are;
+  // palette colors are dealt out over that order so each glyph keeps one color
+  const empty = [], gi = [];
+  let G = 0;
   for (let i = 0; i < L; i++) {
-    const ch = chars[i] || ' ';
-    empty[i] = !ch.trim();
+    const tok = toks[i] || '';
+    empty[i] = !tok;
     if (empty[i]) continue;
+    gi[i] = G++;
     x.save(); x.beginPath(); x.rect(i * s, 0, s, s); x.clip();
-    if (GL.SHAPES[ch]) GL.SHAPES[ch](x, i * s, 0, s, state.fscale);
-    else x.fillText(ch, i * s + s / 2, s / 2 + s * 0.05);
+    if (GL.SHAPES[tok]) GL.SHAPES[tok](x, i * s, 0, s, state.fscale);
+    else if ([...tok].length > 1) x.fillText(tok, i * s + s / 2, s / 2 + s * 0.05, s * 0.94); // words squeeze into the cell
+    else x.fillText(tok, i * s + s / 2, s / 2 + s * 0.05);
     x.restore();
   }
-  return atlasCache[name] = { key, c, L, empty };
+  return atlasCache[name] = { key, c, L, empty, gi, G, toks };
 }
 
 /* ---------- render ---------- */
@@ -115,6 +120,7 @@ function getGrain(W, H) {
 }
 const hex = h => { const n = parseInt(h.slice(1), 16); return [n >> 16 & 255, n >> 8 & 255, n & 255]; };
 function hash(x, y, s) { let h = Math.imul(x, 374761393) ^ Math.imul(y, 668265263) ^ Math.imul(s, 1442695041); h = Math.imul(h ^ (h >>> 13), 1274126177); return ((h ^ (h >>> 16)) >>> 0) / 4294967296; }
+const inkIndex = (j, G, n) => Math.min(n - 1, Math.floor(j * n / G));
 function setSize(c, w, h) { if (c.width !== w || c.height !== h) { c.width = w; c.height = h; } }
 let lastInfo = null;
 
@@ -165,7 +171,7 @@ function render(time) {
     let cr, cg, cb;
     switch (state.color) {
       case 'mono': [cr, cg, cb] = inks[0]; break;
-      case 'palette': [cr, cg, cb] = inks[Math.min(n - 1, Math.floor(v * n))]; break;
+      case 'palette': [cr, cg, cb] = inks[inkIndex(at.gi[lev], at.G, n)]; break;
       case 'duotone': { const a = inks[0], z = inks[Math.min(1, n - 1)]; cr = a[0] + (z[0] - a[0]) * v; cg = a[1] + (z[1] - a[1]) * v; cb = a[2] + (z[2] - a[2]) * v; break; }
       default: { const l = lum * 255; cr = l + (r - l) * sat; cg = l + (g - l) * sat; cb = l + (b - l) * sat; }
     }
@@ -282,6 +288,27 @@ function syncUI() {
   document.querySelectorAll('[data-seg]').forEach(box => box.querySelectorAll('button').forEach(b => b.classList.toggle('on', b.dataset.v === state[box.dataset.seg])));
   state.inks.forEach((h, i) => { const c = $('#ink' + i); c.value = h; c.classList.toggle('off', i >= state.inkN); });
   document.querySelectorAll('.preset').forEach(b => b.classList.toggle('on', b.dataset.p === activePreset));
+  drawLegend();
+}
+// which color each glyph of the main set gets, in the current color mode
+function drawLegend() {
+  const toks = GL.parseRamp(state.ramp).filter(Boolean), G = toks.length, n = state.inkN;
+  const inks = state.inks.map(hex), bgc = hex(state.bg);
+  const contrastInk = bgc[0] * .299 + bgc[1] * .587 + bgc[2] * .114 > 140 ? '#151515' : '#FFFFFF';
+  const MAX = 16, box = $('#legend');
+  box.style.background = state.bg;
+  box.innerHTML = '';
+  toks.slice(0, MAX).forEach((tok, j) => {
+    let col;
+    switch (state.color) {
+      case 'mono': col = state.inks[0]; break;
+      case 'palette': col = state.inks[inkIndex(j, G, n)]; break;
+      case 'duotone': { const a = inks[0], z = inks[Math.min(1, n - 1)], f = G > 1 ? j / (G - 1) : 1; col = `rgb(${a.map((c, k) => Math.round(c + (z[k] - c) * f))})`; break; }
+      default: col = contrastInk;
+    }
+    const sp = document.createElement('span'); sp.textContent = tok; sp.style.color = col; box.appendChild(sp);
+  });
+  if (G > MAX) { const sp = document.createElement('span'); sp.className = 'more'; sp.style.color = contrastInk; sp.textContent = `+${G - MAX}`; box.appendChild(sp); }
 }
 function changed(fromPreset) { if (!fromPreset) activePreset = null; dirty = true; syncUI(); }
 document.querySelectorAll('[data-k]').forEach(el => {
@@ -301,7 +328,7 @@ for (const [id, p] of Object.entries(PRESETS)) {
   const c = document.createElement('canvas'); c.width = 120; c.height = 38;
   const x = c.getContext('2d'); x.fillStyle = p.bg; x.fillRect(0, 0, 120, 38);
   const inks = p.inks || DEFAULTS.inks, nI = p.color === 'palette' ? (p.inkN || 1) : 1;
-  const chars = [...p.ramp].filter(ch => ch.trim());
+  const chars = GL.parseRamp(p.ramp).filter(Boolean);
   x.font = `${p.bold ? 700 : 500} 11px ui-monospace, Menlo, monospace`; x.textBaseline = 'top';
   for (let r = 0; r < 3; r++) for (let k = 0; k < 17; k++) {
     x.fillStyle = p.color === 'source' ? ['#f2a541', '#3aa37a', '#e8615a', '#c8f0a8'][(k + r) % 4] : inks[(k + r) % nI];

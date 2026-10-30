@@ -61,6 +61,9 @@ input[type=color]{width:30px;height:26px;padding:0;border:1px solid var(--line);
 .inks input[type=color].off{opacity:.25}
 .check{display:flex;gap:8px;align-items:center;color:var(--muted);font-size:12px;cursor:pointer}
 .check input{accent-color:var(--accent)}
+.note{margin:0;color:var(--muted);font-size:11.5px;line-height:1.45}
+.legend{display:flex;flex-wrap:wrap;gap:2px 10px;padding:7px 9px;border:1px solid var(--line);border-radius:4px;font:700 14px/1.3 var(--f-mono);min-height:34px;align-items:center}
+.legend .more{font-size:11px;font-weight:500;opacity:.7}
 .two{display:grid;grid-template-columns:1fr 1fr;gap:8px}
 .toast{position:fixed;left:50%;bottom:calc(20px + env(safe-area-inset-bottom,0px));transform:translateX(-50%);background:var(--fg);color:var(--bg);font:500 12px var(--f-mono);padding:9px 14px;border-radius:4px;opacity:0;transition:opacity .2s;pointer-events:none}
 .toast.show{opacity:1}
