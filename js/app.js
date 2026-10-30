@@ -4,6 +4,8 @@
  *   ramp → glyphs stamped (white) into a mask from a pre-rendered atlas →
  *   a per-cell color grid is scaled up and clipped by that mask → composited
  *   over the background and the optional source-image layer.
+ * In "zones" color mode each cell first finds its color zone (js/zones.js);
+ * the zone decides the glyph set and the color, brightness the glyph within it.
  */
 (() => {
 const { CHARSETS, DEFAULTS, PRESETS, t } = GL;
@@ -27,7 +29,15 @@ dragonCanvas.width = 1000; dragonCanvas.height = 1000;
 
 function useSample() {
   clearVideo(); source = { kind: 'sample', el: dragonCanvas, name: 'dragon' };
+  GL.drawDragon(dragonCanvas, 0); detectZones();
   $('#playBtn').hidden = true; dirty = true;
+}
+// zones come from the current source (a video's first frame) and are reset when it changes
+function detectZones() {
+  if (!source) return;
+  const [sw, sh] = srcSize(source); if (!sw || !sh) return;
+  state.zones = GL.detectZones(source.el, sw, sh, state.zoneN);
+  pickTarget = null; renderZones(); dirty = true;
 }
 let objUrl = null;
 function clearVideo() {
@@ -47,7 +57,7 @@ function loadFile(f) {
     const v = document.createElement('video');
     v.muted = true; v.loop = true; v.playsInline = true; v.src = objUrl;
     v.addEventListener('loadeddata', () => {
-      source = { kind: 'video', el: v, name: base }; v.play().catch(() => {});
+      source = { kind: 'video', el: v, name: base }; detectZones(); v.play().catch(() => {});
       $('#playBtn').hidden = false; updatePlayLabel(); dirty = true;
     }, { once: true });
     v.addEventListener('error', () => toast(t('tBadVideo')), { once: true });
@@ -61,7 +71,7 @@ function loadFile(f) {
         const c = document.createElement('canvas'); c.width = w; c.height = h;
         c.getContext('2d').drawImage(img, 0, 0, w, h); el = c;
       }
-      source = { kind: 'image', el, name: base }; $('#playBtn').hidden = true; dirty = true;
+      source = { kind: 'image', el, name: base }; detectZones(); $('#playBtn').hidden = true; dirty = true;
     };
     img.onerror = () => toast(t('tBadImage'));
     img.src = objUrl;
@@ -91,20 +101,20 @@ function getAtlas(name, ramp) {
   x.font = `${state.bold ? 700 : 500} ${s * state.fscale}px "Geist Mono", ui-monospace, Menlo, monospace`;
   // gi[i] = order of level i among the visible glyphs, G = how many there are;
   // palette colors are dealt out over that order so each glyph keeps one color
-  const empty = [], gi = [];
+  const empty = [], gi = [], vis = [];
   let G = 0;
   for (let i = 0; i < L; i++) {
     const tok = toks[i] || '';
     empty[i] = !tok;
     if (empty[i]) continue;
-    gi[i] = G++;
+    gi[i] = G++; vis.push(i);
     x.save(); x.beginPath(); x.rect(i * s, 0, s, s); x.clip();
     if (GL.SHAPES[tok]) GL.SHAPES[tok](x, i * s, 0, s, state.fscale);
     else if ([...tok].length > 1) x.fillText(tok, i * s + s / 2, s / 2 + s * 0.05, s * 0.94); // words squeeze into the cell
     else x.fillText(tok, i * s + s / 2, s / 2 + s * 0.05);
     x.restore();
   }
-  return atlasCache[name] = { key, c, L, empty, gi, G, toks };
+  return atlasCache[name] = { key, c, L, empty, gi, G, vis, toks };
 }
 
 /* ---------- render ---------- */
@@ -150,6 +160,10 @@ function render(time) {
   const main = getAtlas('main', state.ramp);
   const alt = state.patch ? getAtlas('alt', CHARSETS[state.altSet].ramp) : null;
   const inks = state.inks.map(hex), n = state.inkN;
+  const zoneMode = state.color === 'zones' && state.zones.length > 0;
+  const zAt = zoneMode ? state.zones.map((z, k) => getAtlas('z' + k, z.ramp)) : null;
+  const zInk = zoneMode ? state.zones.map(z => hex(z.ink)) : null;
+  const zOf = zoneMode ? GL.zoneMatcher(state.zones, state.zoneTol) : null;
   const blk = state.block, bcols = Math.ceil(cols / blk), brows = Math.ceil(rows / blk);
   const kinds = new Uint8Array(bcols * brows); // 0 main, 1 set 2, 2 reveal image, 3 flip
   if (state.patch) for (let by = 0; by < brows; by++) for (let bx = 0; bx < bcols; bx++) {
@@ -164,19 +178,31 @@ function render(time) {
     const kind = state.patch ? kinds[((y / blk) | 0) * bcols + ((x / blk) | 0)] : 0;
     if (kind === 2) continue;
     const r = d[i], g = d[i + 1], b = d[i + 2];
+    const zk = zoneMode ? zOf(r, g, b) : -1;
+    if (zoneMode && (zk < 0 || !state.zones[zk].on)) continue;
     const lum = (0.2126 * r + 0.7152 * g + 0.0722 * b) / 255;
     let v = (lum - 0.5) * contrast + 0.5 + bright;
     v = v < 0 ? 0 : v > 1 ? 1 : v; v = Math.pow(v, gamma);
     if (invert) v = 1 - v;
     if (kind === 3) v = 1 - v;
     if (v < cut) continue;
-    const at = kind === 1 ? alt : main;
-    let lev = Math.round(v * (at.L - 1));
-    if (flicker && Math.random() < flicker) lev = Math.max(0, Math.min(at.L - 1, lev + (Math.random() < .5 ? -1 : 1)));
-    if (at.empty[lev]) continue;
+    const at = kind === 1 ? alt : zk >= 0 ? zAt[zk] : main;
+    let lev;
+    if (zk >= 0 && at === zAt[zk]) {
+      // a zone that is shown covers all its cells: brightness only picks among its real glyphs
+      if (!at.G) continue;
+      let j = Math.round(v * (at.G - 1));
+      if (flicker && Math.random() < flicker) j = Math.max(0, Math.min(at.G - 1, j + (Math.random() < .5 ? -1 : 1)));
+      lev = at.vis[j];
+    } else {
+      lev = Math.round(v * (at.L - 1));
+      if (flicker && Math.random() < flicker) lev = Math.max(0, Math.min(at.L - 1, lev + (Math.random() < .5 ? -1 : 1)));
+      if (at.empty[lev]) continue;
+    }
     mctx.drawImage(at.c, lev * s, 0, s, s, x * s, y * s, s, s);
     let cr, cg, cb;
-    switch (state.color) {
+    switch (zk >= 0 ? 'zone' : state.color) {
+      case 'zone': [cr, cg, cb] = zInk[zk]; break;
       case 'mono': [cr, cg, cb] = inks[0]; break;
       case 'palette': [cr, cg, cb] = inks[inkIndex(at.gi[lev], at.G, n)]; break;
       case 'duotone': { const a = inks[0], z = inks[Math.min(1, n - 1)]; cr = a[0] + (z[0] - a[0]) * v; cg = a[1] + (z[1] - a[1]) * v; cb = a[2] + (z[2] - a[2]) * v; break; }
@@ -253,8 +279,8 @@ function loop(time) {
 }
 
 /* ---------- UI ---------- */
-const INT_KEYS = ['cell', 'inkN', 'block'];
-const PCT_KEYS = ['cut', 'imgOpacity', 'inkOpacity', 'reveal', 'alt', 'flip', 'flicker', 'grain'];
+const INT_KEYS = ['cell', 'inkN', 'block', 'zoneN'];
+const PCT_KEYS = ['cut', 'imgOpacity', 'inkOpacity', 'reveal', 'alt', 'flip', 'flicker', 'grain', 'zoneTol'];
 function fmt(k, v) {
   if (typeof v !== 'number') return v;
   if (INT_KEYS.includes(k)) return String(v);
@@ -274,11 +300,11 @@ function buildSeg(name, items, onPick) {
 }
 function buildDynamicLabels() {
   buildSeg('ramp', Object.values(CHARSETS).map(c => [c.ramp, c.name]), v => state.ramp = v);
-  buildSeg('color', [['mono', () => t('cMono')], ['palette', () => t('cPalette')], ['duotone', () => t('cDuo')], ['source', () => t('cSource')]], v => state.color = v);
+  buildSeg('color', [['mono', () => t('cMono')], ['palette', () => t('cPalette')], ['duotone', () => t('cDuo')], ['source', () => t('cSource')], ['zones', () => t('cZones')]], v => state.color = v);
   $('#altSet').innerHTML = Object.entries(CHARSETS).map(([k, c]) => `<option value="${k}">${t('set2')}: ${c.name}</option>`).join('');
   document.querySelectorAll('.preset span').forEach(sp => sp.textContent = PRESETS[sp.parentNode.dataset.p].name[GL.lang]);
   document.querySelectorAll('#inks input').forEach((c, i) => c.setAttribute('aria-label', `${t('inkLabel')} ${i + 1}`));
-  updatePlayLabel(); updateRecLabel(); updateMeta();
+  updatePlayLabel(); updateRecLabel(); updateMeta(); renderZones();
 }
 const inkBox = $('#inks');
 for (let i = 0; i < GL.MAX_INKS; i++) {
@@ -295,8 +321,69 @@ function syncUI() {
   document.querySelectorAll('[data-seg]').forEach(box => box.querySelectorAll('button').forEach(b => b.classList.toggle('on', b.dataset.v === state[box.dataset.seg])));
   state.inks.forEach((h, i) => { const c = $('#ink' + i); c.value = h; c.classList.toggle('off', i >= state.inkN); });
   document.querySelectorAll('.preset').forEach(b => b.classList.toggle('on', b.dataset.p === activePreset));
-  drawLegend();
+  const zoneMode = state.color === 'zones';
+  $('#zonePanel').hidden = !zoneMode; $('#legend').hidden = zoneMode;
+  document.querySelectorAll('.nozone').forEach(el => el.hidden = zoneMode); // zones set their own colors frame.classList.toggle('zoning', zoneMode);
+  styleZones(); drawLegend();
 }
+
+/* ---------- color zones panel ---------- */
+let pickTarget = null;           // zone index waiting for a color picked on the canvas
+const zoneSetOptions = () => Object.entries(CHARSETS).map(([k, c]) => `<option value="${k}">${c.name}</option>`).join('') + `<option value="">${t('zoneCustom')}</option>`;
+const setKeyOf = ramp => Object.keys(CHARSETS).find(k => CHARSETS[k].ramp === ramp) || '';
+function renderZones() {
+  const box = $('#zoneList'); if (!box) return;
+  box.innerHTML = '';
+  if (!state.zones.length) { box.innerHTML = `<p class="note">${t('zoneEmpty')}</p>`; return; }
+  state.zones.forEach((z, k) => {
+    const row = document.createElement('div'); row.className = 'zone'; row.dataset.z = k;
+    row.innerHTML = `<button type="button" class="zsrc" title="${t('zonePickTitle')}" aria-label="${t('zonePickTitle')} ${k + 1}"></button>`
+      + `<span class="zarrow" aria-hidden="true">→</span>`
+      + `<input type="color" class="zink" aria-label="${t('zoneInk')} ${k + 1}">`
+      + `<select class="zset" aria-label="${t('zoneSet')} ${k + 1}">${zoneSetOptions()}</select>`
+      + `<label class="check" title="${t('zoneShow')}"><input type="checkbox" class="zon" aria-label="${t('zoneShow')} ${k + 1}"></label>`
+      + `<button type="button" class="zdel" aria-label="${t('zoneDel')} ${k + 1}">×</button>`
+      + `<input type="text" class="zramp" spellcheck="false" placeholder="a;b;c" aria-label="${t('zoneSet')} ${k + 1}">`;
+    const q = s => row.querySelector(s);
+    q('.zink').value = z.ink; q('.zset').value = setKeyOf(z.ramp); q('.zon').checked = z.on; q('.zramp').value = z.ramp;
+    q('.zsrc').addEventListener('click', () => { pickTarget = pickTarget === k ? null : k; styleZones(); if (pickTarget !== null) toast(t('tZonePick')); });
+    q('.zink').addEventListener('input', e => { z.ink = e.target.value; zoneEdited(); });
+    q('.zon').addEventListener('change', e => { z.on = e.target.checked; zoneEdited(); });
+    q('.zset').addEventListener('change', e => { if (e.target.value) { z.ramp = CHARSETS[e.target.value].ramp; q('.zramp').value = z.ramp; } zoneEdited(); });
+    q('.zramp').addEventListener('input', e => { z.ramp = e.target.value || ' '; q('.zset').value = setKeyOf(z.ramp); zoneEdited(); });
+    q('.zdel').addEventListener('click', () => { state.zones.splice(k, 1); pickTarget = null; renderZones(); zoneEdited(); });
+    box.appendChild(row);
+  });
+  styleZones();
+}
+// zone edits change the picture but not the panel layout, so they skip syncUI (keeps typing focus)
+function zoneEdited() { activePreset = null; dirty = true; styleZones(); document.querySelectorAll('.preset').forEach(b => b.classList.remove('on')); }
+function styleZones() {
+  document.querySelectorAll('.zone').forEach(row => {
+    const z = state.zones[+row.dataset.z]; if (!z) return;
+    row.classList.toggle('off', !z.on); row.classList.toggle('picking', pickTarget === +row.dataset.z);
+    const src = row.querySelector('.zsrc'); src.style.background = z.src; src.title = `${t('zonePickTitle')} · ${z.src}${z.share ? ` · ${Math.round(z.share * 100)}%` : ''}`;
+    const rp = row.querySelector('.zramp'); rp.style.background = state.bg; rp.style.color = z.ink;
+  });
+  frame.classList.toggle('picking', pickTarget !== null);
+}
+// click the output: pick a color for the armed zone, or add a new zone from that spot
+out.addEventListener('click', e => {
+  if (state.color !== 'zones' || !lastInfo) return;
+  const r = out.getBoundingClientRect();
+  const cx = Math.min(lastInfo.cols - 1, Math.max(0, Math.floor((e.clientX - r.left) / r.width * lastInfo.cols)));
+  const cy = Math.min(lastInfo.rows - 1, Math.max(0, Math.floor((e.clientY - r.top) / r.height * lastInfo.rows)));
+  const p = sctx.getImageData(cx, cy, 1, 1).data; if (p[3] < 40) return;
+  const col = GL.zoneToHex(p[0], p[1], p[2]);
+  if (pickTarget !== null && state.zones[pickTarget]) { state.zones[pickTarget].src = col; pickTarget = null; toast(t('tZonePicked')); }
+  else if (state.zones.length < GL.MAX_ZONES) {
+    const k = state.zones.length;
+    state.zones.push({ src: col, ink: col, on: true, ramp: CHARSETS[GL.ZONE_SETS[k % GL.ZONE_SETS.length]].ramp });
+    toast(t('tZoneAdded'));
+  } else { toast(t('tZoneFull')); return; }
+  renderZones(); zoneEdited();
+});
+$('#zoneDetect').addEventListener('click', detectZones);
 // which color each glyph of the main set gets, in the current color mode
 function drawLegend() {
   const toks = GL.parseRamp(state.ramp).filter(Boolean), G = toks.length, n = state.inkN;
@@ -323,6 +410,7 @@ document.querySelectorAll('[data-k]').forEach(el => {
     const k = el.dataset.k;
     state[k] = el.type === 'checkbox' ? el.checked : el.type === 'range' ? +el.value : el.value;
     if (k === 'ramp' && !state.ramp.length) state.ramp = ' ';
+    if (k === 'zoneN') detectZones();
     changed();
   });
 });
@@ -348,7 +436,7 @@ for (const [id, p] of Object.entries(PRESETS)) {
 }
 function applyPreset(id) {
   // presets only change the look; the frame ratio and output width stay as the user set them
-  const keep = { frame: state.frame, size: state.size };
+  const keep = { frame: state.frame, size: state.size, zones: state.zones, zoneN: state.zoneN, zoneTol: state.zoneTol };
   const { name, ...p } = PRESETS[id];
   state = withInks(clone({ ...DEFAULTS, ...p, ...keep }));
   activePreset = id; changed(true);
