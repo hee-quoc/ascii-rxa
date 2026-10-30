@@ -48,6 +48,22 @@ GL.SHAPES = {
     x.stroke(); x.restore();
   },
 };
+// the same shapes as SVG markup for one s×s cell at the origin, in currentColor
+GL.SHAPES_SVG = (() => {
+  const f = v => +v.toFixed(2), r = (x, y, w, h) => `<rect x="${f(x)}" y="${f(y)}" width="${f(w)}" height="${f(h)}"/>`;
+  return {
+    '─': (s, k) => { const h = s * 0.16 * k; return r(0, (s - h) / 2, s, h); },
+    '╸': (s, k) => { const h = s * 0.58 * k; return r(0, (s - h) / 2, s * 0.55, h); },
+    '━': (s, k) => { const h = s * 0.58 * k; return r(0, (s - h) / 2, s, h); },
+    '▪': (s, k) => { const w = s * 0.34 * k; return r((s - w) / 2, (s - w) / 2, w, w); },
+    '■': (s, k) => { const w = s * 0.78 * k; return r((s - w) / 2, (s - w) / 2, w, w); },
+    '●': (s, k) => `<circle cx="${f(s / 2)}" cy="${f(s / 2)}" r="${f(s * 0.5 * k)}"/>`,
+    '✕': (s, k) => {
+      const a = s * 0.36 * k, c = s / 2;
+      return `<path d="M${f(c - a)} ${f(c - a)}L${f(c + a)} ${f(c + a)}M${f(c + a)} ${f(c - a)}L${f(c - a)} ${f(c + a)}" fill="none" stroke="currentColor" stroke-width="${f(s * 0.2 * k)}" stroke-linecap="square"/>`;
+    },
+  };
+})();
 
 GL.MAX_INKS = 8;
 

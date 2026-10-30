@@ -1,7 +1,7 @@
 # Glyph Loom
 
-Hệ thống ASCII generative chạy hoàn toàn trên trình duyệt. Upload ảnh, SVG hoặc video (MP4/WebM) và chuyển thành lưới ký tự, có lớp ảnh gốc lồng bên dưới, patchwork, flicker và xuất PNG / video.
-*A browser-only ASCII generative system: turn images, SVG and video into character grids, layered over the source, with patchwork, flicker and PNG / video export. UI in Vietnamese and English.*
+Hệ thống ASCII generative chạy hoàn toàn trên trình duyệt. Upload ảnh, SVG hoặc video (MP4/WebM) và chuyển thành lưới ký tự, có lớp ảnh gốc lồng bên dưới, patchwork, flicker và xuất PNG / SVG / video.
+*A browser-only ASCII generative system: turn images, SVG and video into character grids, layered over the source, with patchwork, flicker and PNG / SVG / video export. UI in Vietnamese and English.*
 
 ## Chạy local
 
@@ -77,5 +77,6 @@ Bộ ký tự **Bars** và **Shapes** không vẽ bằng font mà vẽ bằng h�
 ## Ghi chú
 
 - PNG có nền trong suốt: vùng trong suốt sẽ để trống, chỉ vẽ phần có hình.
+- **Xuất SVG** cho file vector: mỗi ký tự là một `<text>` (Bars/Shapes là hình vector), gom nhóm theo màu nên sửa được trong Figma / Illustrator. Font Geist Mono được nhúng sẵn (chỉ các ký tự có dùng) để mở ở đâu cũng giống bản xem trước; khi offline file dùng font mono của máy. Lớp ảnh gốc (nếu bật) được nhúng dạng PNG, hạt nhiễu thành filter SVG nên trông hơi khác bản PNG.
 - Quay video dùng `MediaRecorder`: Chrome/Edge xuất WebM (hoặc MP4 nếu trình duyệt hỗ trợ), Safari xuất MP4.
 - Mọi xử lý đều nằm trên máy người dùng, không upload file đi đâu cả.
