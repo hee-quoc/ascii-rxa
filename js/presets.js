@@ -49,10 +49,12 @@ GL.SHAPES = {
   },
 };
 
+GL.MAX_INKS = 8;
+
 GL.DEFAULTS = {
   ramp: GL.CHARSETS.classic.ramp, cell: 12, fscale: 1.05, bold: false,
   bright: 0, contrast: 1.2, gamma: 1, cut: 0, invert: false,
-  color: 'mono', bg: '#0A0A0A', inks: ['#FFFFFF', '#BBBBBB', '#888888', '#FFFFFF'], inkN: 1, sat: 1.2,
+  color: 'mono', bg: '#0A0A0A', inks: ['#FFFFFF', '#BBBBBB', '#888888', '#FFFFFF', '#FFFFFF', '#FFFFFF', '#FFFFFF', '#FFFFFF'], inkN: 1, sat: 1.2,
   imgOpacity: 0, imgBlend: 'source-over', blend: 'source-over', inkOpacity: 1, imgGray: true,
   patch: false, block: 6, reveal: 0, alt: 0.3, flip: 0, altSet: 'dots', seed: 7,
   flicker: 0, grain: 0, label: '', labelPos: 'c', frame: 'source', size: '1080',
