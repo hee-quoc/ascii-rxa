@@ -20,6 +20,17 @@ GL.CHARSETS = {
   shapes:  { ramp: ' ▪✕■●', name: 'Shapes' },
 };
 
+/* A ramp is either a plain string (one glyph per character) or a list split
+ * by ';' where each entry can be a character, an emoji or a short word:
+ * 'a;b;c;d' or 'AI;·;LOVE'. Entries run from dark/sparse to bright/dense and
+ * an empty entry is a blank level. Without any blank level one is added in
+ * front, so the background stays clear like the built-in sets. */
+GL.parseRamp = str => {
+  const toks = str.includes(';') ? str.split(';').map(s => s.trim()) : [...str].map(c => c.trim());
+  if (!toks.some(t => !t)) toks.unshift('');
+  return toks;
+};
+
 /* Glyphs drawn as geometry instead of font text, so they fill the cell
  * edge to edge and line up into continuous bars / halftone dots.
  * Each gets the atlas context, the cell's left/top, cell size and glyph scale. */

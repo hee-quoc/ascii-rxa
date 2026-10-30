@@ -49,6 +49,13 @@ js/app.js         engine render + xử lý UI
 | Scan | `#E3E3DF` | `#111111` | 14.67 |
 | Moss | `#EDEDE8` | `#1E5A47` | 6.85 |
 
+## Bộ ký tự tự nhập
+
+Ô **Tự nhập** nhận một danh sách cách nhau bằng `;`, mỗi mục là một ký tự, emoji hoặc một từ ngắn: `a;b;c;d`, `·;AI;★;LOVE`. Thứ tự từ trái sang phải ứng với vùng tối → vùng sáng (bật **Đảo sáng / tối** để lật lại). Không có `;` thì mỗi ký tự là một mục, như các bộ có sẵn.
+
+- Nếu danh sách không có mục trống nào, app tự thêm một mục trống ở đầu để nền vẫn sạch. Muốn chừa trống chỗ khác thì để `;;`.
+- Ở chế độ **Palette**, màu được chia theo thứ tự các mục: 4 mục với 4 màu thì mục thứ *i* luôn mang màu thứ *i*; nhiều mục hơn số màu thì các mục liền nhau dùng chung một màu. Ô xem trước dưới ô nhập cho thấy mục nào mang màu nào.
+
 Thêm biến thể mới: thêm một mục vào `GL.PRESETS` trong `js/presets.js`.
 
 Bộ ký tự **Bars** và **Shapes** không vẽ bằng font mà vẽ bằng hình học (`GL.SHAPES`), nên thanh ngang và chấm tròn lấp kín ô và nối liền nhau. Thanh **Hạt nhiễu / Grain** phủ một lớp nhiễu tĩnh lên ảnh xuất.
