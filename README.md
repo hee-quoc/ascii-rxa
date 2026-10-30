@@ -27,6 +27,7 @@ index.html        markup + các ô điều khiển
 css/style.css     giao diện (light / dark theo hệ thống)
 js/i18n.js        chuỗi chữ VI / EN, nút chuyển ngôn ngữ
 js/presets.js     bộ ký tự, giá trị mặc định, các biến thể + bảng màu
+js/zones.js       tìm vùng màu (k-means trong Oklab) + gán ô vào vùng
 js/dragon.js      con rồng demo vẽ bằng canvas
 js/app.js         engine render + xử lý UI
 ```
@@ -55,6 +56,17 @@ js/app.js         engine render + xử lý UI
 
 - Nếu danh sách không có mục trống nào, app tự thêm một mục trống ở đầu để nền vẫn sạch. Muốn chừa trống chỗ khác thì để `;;`.
 - Bảng màu có tối đa 8 màu (kéo **Số màu**). Ở chế độ **Palette**, màu được chia theo thứ tự các mục: 8 mục với 8 màu thì mục thứ *i* luôn mang màu thứ *i*; nhiều mục hơn số màu thì các mục liền nhau dùng chung một màu. Ô xem trước dưới ô nhập cho thấy mục nào mang màu nào.
+
+## Vùng màu
+
+Chế độ màu **Vùng** chia ảnh theo màu thay vì theo độ sáng. Khi tải ảnh hoặc video lên, app tự tìm các dải màu chính (2–8 vùng; với video thì lấy từ khung hình đầu tiên). Mỗi vùng có:
+
+- **Màu gốc**: màu app tìm thấy. Bấm vào ô này rồi bấm lên ảnh để chọn lại.
+- **Màu xuất**: màu ký tự của vùng đó.
+- **Bộ ký tự** riêng: chọn bộ có sẵn hoặc tự gõ kiểu `a;b;c`.
+- **Bật/tắt**: vùng chiếm nhiều viền ảnh nhất (thường là nền) được tắt sẵn.
+
+Mỗi ô ký tự thuộc về vùng có màu gốc gần nhất (so theo sắc độ nhiều hơn độ sáng, nên mặt sáng và mặt tối của một đám mây vẫn chung một vùng). Trong vùng đó, độ sáng chọn ký tự thưa hay dày. **Độ rộng vùng** dưới 100% sẽ bỏ trống những chỗ không đủ giống vùng nào. Bấm thẳng lên ảnh để thêm vùng mới. Đổi preset không làm mất các vùng.
 
 Thêm biến thể mới: thêm một mục vào `GL.PRESETS` trong `js/presets.js`.
 

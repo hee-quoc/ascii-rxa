@@ -66,10 +66,17 @@
     <section>
       <h2 data-i18n="sColor"></h2>
       <div class="seg" data-seg="color"></div>
+      <div class="zones" id="zonePanel" hidden>
+        <p class="note" data-i18n="zoneNote"></p>
+        <div class="row"><label for="zoneN" data-i18n="zoneN"></label><input id="zoneN" data-k="zoneN" type="range" min="2" max="8" step="1"><output data-o="zoneN"></output></div>
+        <div class="row"><label for="zoneTol" data-i18n="zoneTol"></label><input id="zoneTol" data-k="zoneTol" type="range" min="0.05" max="1" step="0.01"><output data-o="zoneTol"></output></div>
+        <div class="zone-list" id="zoneList"></div>
+        <button type="button" id="zoneDetect" data-i18n="zoneRedetect"></button>
+      </div>
       <div class="row2"><label for="bg" data-i18n="bg"></label><div class="inks"><input id="bg" data-k="bg" type="color"></div></div>
-      <div class="row2"><label data-i18n="inks"></label><div class="inks" id="inks"></div></div>
-      <div class="row"><label for="inkN" data-i18n="inkN"></label><input id="inkN" data-k="inkN" type="range" min="1" max="8" step="1"><output data-o="inkN"></output></div>
-      <div class="row"><label for="sat" data-i18n="sat"></label><input id="sat" data-k="sat" type="range" min="0" max="2.5" step="0.05"><output data-o="sat"></output></div>
+      <div class="nozone row2"><label data-i18n="inks"></label><div class="inks" id="inks"></div></div>
+      <div class="nozone row"><label for="inkN" data-i18n="inkN"></label><input id="inkN" data-k="inkN" type="range" min="1" max="8" step="1"><output data-o="inkN"></output></div>
+      <div class="nozone row"><label for="sat" data-i18n="sat"></label><input id="sat" data-k="sat" type="range" min="0" max="2.5" step="0.05"><output data-o="sat"></output></div>
       <div class="row"><label for="grain" data-i18n="grain"></label><input id="grain" data-k="grain" type="range" min="0" max="0.5" step="0.01"><output data-o="grain"></output></div>
     </section>
 
@@ -125,6 +132,7 @@
 <!-- BODY:END -->
 <script src="js/i18n.js"></script>
 <script src="js/presets.js"></script>
+<script src="js/zones.js"></script>
 <script src="js/dragon.js"></script>
 <script src="js/app.js"></script>
 </body>
