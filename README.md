@@ -68,6 +68,8 @@ Chế độ màu **Vùng** chia ảnh theo màu thay vì theo độ sáng. Khi t
 
 Mỗi ô ký tự thuộc về vùng có màu gốc gần nhất (so theo sắc độ nhiều hơn độ sáng, nên mặt sáng và mặt tối của một đám mây vẫn chung một vùng). Trong vùng đó, độ sáng chọn ký tự thưa hay dày. **Độ rộng vùng** dưới 100% sẽ bỏ trống những chỗ không đủ giống vùng nào. Bấm thẳng lên ảnh để thêm vùng mới. Đổi preset không làm mất các vùng.
 
+Nút **Mây demo** mở `assets/cloud.jpg` và bật sẵn chế độ Vùng để xem nhanh tính năng này.
+
 Thêm biến thể mới: thêm một mục vào `GL.PRESETS` trong `js/presets.js`.
 
 Bộ ký tự **Bars** và **Shapes** không vẽ bằng font mà vẽ bằng hình học (`GL.SHAPES`), nên thanh ngang và chấm tròn lấp kín ô và nối liền nhau. Thanh **Hạt nhiễu / Grain** phủ một lớp nhiễu tĩnh lên ảnh xuất.

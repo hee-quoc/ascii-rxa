@@ -4,7 +4,7 @@ window.GL = window.GL || {};
 GL.STRINGS = {
   vi: {
     hint: 'Kéo thả ảnh / SVG / MP4 vào đây · hoặc dán (Ctrl+V)',
-    upload: 'Tải file lên', demo: 'Rồng demo',
+    upload: 'Tải file lên', demo: 'Rồng demo', demoCloud: 'Mây demo', tNoCloud: 'Chưa có ảnh mây demo (assets/cloud.jpg)',
     pause: 'Tạm dừng video', play: 'Phát video',
     png: 'Xuất PNG', rec: '● Quay video', recStop: '■ Dừng & lưu',
     sPresets: 'Biến thể', sCharset: 'Bộ ký tự', sTone: 'Tone', sColor: 'Màu',
@@ -35,7 +35,7 @@ GL.STRINGS = {
   },
   en: {
     hint: 'Drop an image / SVG / MP4 here · or paste (Ctrl+V)',
-    upload: 'Upload file', demo: 'Dragon demo',
+    upload: 'Upload file', demo: 'Dragon demo', demoCloud: 'Cloud demo', tNoCloud: 'Cloud demo image is missing (assets/cloud.jpg)',
     pause: 'Pause video', play: 'Play video',
     png: 'Export PNG', rec: '● Record', recStop: '■ Stop & save',
     sPresets: 'Presets', sCharset: 'Character set', sTone: 'Tone', sColor: 'Color',
