@@ -9,8 +9,15 @@
 const { CHARSETS, DEFAULTS, PRESETS, t } = GL;
 const $ = s => document.querySelector(s);
 const clone = o => JSON.parse(JSON.stringify(o));
+// presets may list fewer than MAX_INKS colors; fill the rest with the last
+// active one so raising the color count keeps the dark → bright order
+function withInks(s) {
+  const last = s.inks[Math.max(0, Math.min(s.inkN, s.inks.length) - 1)];
+  while (s.inks.length < GL.MAX_INKS) s.inks.push(last);
+  return s;
+}
 
-let state = clone({ ...DEFAULTS, ...PRESETS[GL.DEFAULT_PRESET] });
+let state = withInks(clone({ ...DEFAULTS, ...PRESETS[GL.DEFAULT_PRESET] }));
 let activePreset = GL.DEFAULT_PRESET;
 
 /* ---------- sources ---------- */
@@ -274,7 +281,7 @@ function buildDynamicLabels() {
   updatePlayLabel(); updateRecLabel(); updateMeta();
 }
 const inkBox = $('#inks');
-for (let i = 0; i < 4; i++) {
+for (let i = 0; i < GL.MAX_INKS; i++) {
   const c = document.createElement('input'); c.type = 'color'; c.id = 'ink' + i;
   c.addEventListener('input', () => { state.inks[i] = c.value; changed(); });
   inkBox.appendChild(c);
@@ -343,7 +350,7 @@ function applyPreset(id) {
   // presets only change the look; the frame ratio and output width stay as the user set them
   const keep = { frame: state.frame, size: state.size };
   const { name, ...p } = PRESETS[id];
-  state = clone({ ...DEFAULTS, ...p, ...keep });
+  state = withInks(clone({ ...DEFAULTS, ...p, ...keep }));
   activePreset = id; changed(true);
 }
 

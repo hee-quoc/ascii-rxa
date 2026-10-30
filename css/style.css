@@ -56,7 +56,7 @@ input[type=range]{width:100%;accent-color:var(--accent);margin:0}
 .row2{display:grid;grid-template-columns:88px minmax(0,1fr);align-items:center;gap:8px}
 .row2 label{color:var(--muted);font-size:12px}
 select,input[type=text]{width:100%;font:400 12px var(--f-mono);color:var(--fg);background:var(--bg);border:1px solid var(--line);border-radius:4px;padding:6px 7px}
-.inks{display:flex;gap:6px;align-items:center}
+.inks{display:flex;flex-wrap:wrap;gap:6px;align-items:center}
 input[type=color]{width:30px;height:26px;padding:0;border:1px solid var(--line);border-radius:4px;background:none;cursor:pointer}
 .inks input[type=color].off{opacity:.25}
 .check{display:flex;gap:8px;align-items:center;color:var(--muted);font-size:12px;cursor:pointer}
