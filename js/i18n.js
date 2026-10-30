@@ -6,7 +6,7 @@ GL.STRINGS = {
     hint: 'Kéo thả ảnh / SVG / MP4 vào đây · hoặc dán (Ctrl+V)',
     upload: 'Tải file lên', demo: 'Rồng demo', demoCloud: 'Mây demo', tNoCloud: 'Chưa có ảnh mây demo (assets/cloud.jpg)',
     pause: 'Tạm dừng video', play: 'Phát video',
-    png: 'Xuất PNG', rec: '● Quay video', recStop: '■ Dừng & lưu',
+    png: 'Xuất PNG', svg: 'Xuất SVG', svgTip: 'File vector: mỗi ký tự là chữ/hình sửa được trong Figma, Illustrator', rec: '● Quay video', recStop: '■ Dừng & lưu',
     sPresets: 'Biến thể', sCharset: 'Bộ ký tự', sTone: 'Tone', sColor: 'Màu',
     sLayer: 'Lồng ảnh gốc', sMotion: 'Chuyển động & chữ',
     custom: 'Tự nhập',
@@ -37,7 +37,7 @@ GL.STRINGS = {
     hint: 'Drop an image / SVG / MP4 here · or paste (Ctrl+V)',
     upload: 'Upload file', demo: 'Dragon demo', demoCloud: 'Cloud demo', tNoCloud: 'Cloud demo image is missing (assets/cloud.jpg)',
     pause: 'Pause video', play: 'Play video',
-    png: 'Export PNG', rec: '● Record', recStop: '■ Stop & save',
+    png: 'Export PNG', svg: 'Export SVG', svgTip: 'Vector file: every glyph is editable text or a shape in Figma, Illustrator', rec: '● Record', recStop: '■ Stop & save',
     sPresets: 'Presets', sCharset: 'Character set', sTone: 'Tone', sColor: 'Color',
     sLayer: 'Source layer', sMotion: 'Motion & label',
     custom: 'Custom',
@@ -76,6 +76,7 @@ GL.t = key => (GL.STRINGS[GL.lang] && GL.STRINGS[GL.lang][key]) ?? GL.STRINGS.en
 GL.applyLang = () => {
   document.documentElement.lang = GL.lang;
   document.querySelectorAll('[data-i18n]').forEach(el => { el.textContent = GL.t(el.dataset.i18n); });
+  document.querySelectorAll('[data-i18n-title]').forEach(el => { el.title = GL.t(el.dataset.i18nTitle); });
   document.querySelectorAll('[data-lang]').forEach(b => b.classList.toggle('on', b.dataset.lang === GL.lang));
 };
 

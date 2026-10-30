@@ -140,6 +140,7 @@ function hash(x, y, s) { let h = Math.imul(x, 374761393) ^ Math.imul(y, 66826526
 const inkIndex = (j, G, n) => Math.min(n - 1, Math.floor(j * n / G));
 function setSize(c, w, h) { if (c.width !== w || c.height !== h) { c.width = w; c.height = h; } }
 let lastInfo = null;
+let svgCells = null; // when set, render() also records every drawn glyph here for the SVG export
 
 function render(time) {
   if (!source) return;
@@ -209,6 +210,7 @@ function render(time) {
       default: { const l = lum * 255; cr = l + (r - l) * sat; cg = l + (g - l) * sat; cb = l + (b - l) * sat; }
     }
     cdd[i] = cr; cdd[i + 1] = cg; cdd[i + 2] = cb; cdd[i + 3] = 255;
+    if (svgCells) svgCells.push([x, y, at.toks[lev], cdd[i] << 16 | cdd[i + 1] << 8 | cdd[i + 2]]);
   }
   cctx.putImageData(cd, 0, 0);
 
@@ -235,25 +237,20 @@ function render(time) {
     octx.clip(); octx.drawImage(imgC, 0, 0); octx.restore();
   }
   if (state.label) drawLabel(W, H);
-  lastInfo = { cols, rows, W, H }; updateMeta();
+  lastInfo = { cols, rows, W, H, s, brows, bcols, blk, kinds }; updateMeta();
 }
 function updateMeta() {
   if (!lastInfo || !source) return;
   const kind = { sample: t('kindSample'), image: t('kindImage'), video: t('kindVideo') }[source.kind];
   $('#meta').textContent = `${lastInfo.cols} × ${lastInfo.rows} ${t('chars')} · ${lastInfo.W} × ${lastInfo.H} px · ${kind}`;
 }
-function drawLabel(W, H) {
+// label geometry and colors, shared by the canvas and the SVG export
+function labelLayout(W, H) {
   if (state.labelPos === 'vl') { // small vertical caption on the left edge, no box
-    const fs = Math.round(W * 0.016);
-    octx.save(); octx.translate(W * 0.022, H / 2); octx.rotate(-Math.PI / 2);
-    octx.font = `700 ${fs}px "Geist Mono", ui-monospace, monospace`;
-    octx.textAlign = 'center'; octx.textBaseline = 'middle'; octx.fillStyle = state.inks[0];
-    octx.fillText(state.label, 0, 0); octx.restore();
-    return;
+    return { vertical: true, fs: Math.round(W * 0.016), weight: 700, x: W * 0.022, y: H / 2, fill: state.inks[0] };
   }
   const fs = Math.round(W * 0.052), padX = fs * 0.45, padY = fs * 0.3;
   octx.font = `500 ${fs}px "Geist Mono", ui-monospace, monospace`;
-  octx.textBaseline = 'middle';
   const tw = octx.measureText(state.label).width, bw = tw + padX * 2, bh = fs + padY * 2, m = W * 0.05;
   let x, y;
   switch (state.labelPos) {
@@ -264,11 +261,18 @@ function drawLabel(W, H) {
   }
   // box uses the lightest glyph color; text uses the background
   const list = state.inks.slice(0, state.inkN).map(hex).sort((a, b) => (a[0] + a[1] + a[2]) - (b[0] + b[1] + b[2]));
-  const light = list[list.length - 1], bgc = hex(state.bg);
+  const light = list[list.length - 1], bgc = hex(state.bg), lc = `rgb(${light})`;
   const lightIsLighter = light[0] + light[1] + light[2] > bgc[0] + bgc[1] + bgc[2];
-  octx.fillStyle = lightIsLighter ? `rgb(${light})` : state.bg; octx.fillRect(x, y, bw, bh);
-  octx.fillStyle = lightIsLighter ? state.bg : `rgb(${light})`;
-  octx.fillText(state.label, x + padX, y + bh / 2 + fs * 0.04);
+  return { fs, weight: 500, box: [x, y, bw, bh], boxFill: lightIsLighter ? lc : state.bg, fill: lightIsLighter ? state.bg : lc, x: x + padX, y: y + bh / 2 + fs * 0.04 };
+}
+function drawLabel(W, H) {
+  const L = labelLayout(W, H);
+  octx.save();
+  if (L.box) { octx.fillStyle = L.boxFill; octx.fillRect(...L.box); }
+  octx.font = `${L.weight} ${L.fs}px "Geist Mono", ui-monospace, monospace`;
+  octx.textAlign = L.vertical ? 'center' : 'left'; octx.textBaseline = 'middle'; octx.fillStyle = L.fill;
+  octx.translate(L.x, L.y); if (L.vertical) octx.rotate(-Math.PI / 2);
+  octx.fillText(state.label, 0, 0); octx.restore();
 }
 
 let recording = false;
@@ -485,6 +489,89 @@ async function saveBlob(blob, name) {
 }
 const fileBase = () => `glyphloom-${source?.name || 'out'}`;
 $('#pngBtn').addEventListener('click', () => { render(performance.now()); out.toBlob(b => b && saveBlob(b, fileBase() + '.png'), 'image/png'); });
+
+/* SVG export — glyphs become real <text> (shapes become <use> of a vector symbol),
+ * grouped by color so the file stays editable in Figma / Illustrator. The source
+ * image layer, if shown, is embedded as a PNG; grain becomes an SVG noise filter. */
+const esc = v => String(v).replace(/[&<>"]/g, c => ({ '&': '&amp;', '<': '&lt;', '>': '&gt;', '"': '&quot;' })[c]);
+const cssBlend = b => (b === 'source-over' ? 'normal' : b === 'lighter' ? 'plus-lighter' : b);
+const FONT = `'Geist Mono', ui-monospace, Menlo, monospace`;
+// canvas centers text on the em box ('middle'); SVG viewers disagree on
+// dominant-baseline, so place text on its alphabetic baseline at the same spot
+function baseDrop(weight, size) {
+  octx.font = `${weight} ${size}px "Geist Mono", ui-monospace, Menlo, monospace`; octx.textBaseline = 'middle';
+  return -octx.measureText('M').alphabeticBaseline || 0;
+}
+function buildSvg() {
+  svgCells = [];
+  try { render(performance.now()); } finally { var cells = svgCells; svgCells = null; }
+  const { W, H, s, bcols, brows, blk, kinds } = lastInfo, f = v => +v.toFixed(2);
+  const fs = f(s * state.fscale), weight = state.bold ? 700 : 500, maxW = s * 0.94;
+  const drop = baseDrop(weight, fs);
+  const defs = [], shapeIds = {}, groups = new Map();
+  for (const [x, y, tok, rgb] of cells) {
+    const col = '#' + rgb.toString(16).padStart(6, '0');
+    if (!groups.has(col)) groups.set(col, []);
+    let el;
+    if (GL.SHAPES_SVG[tok]) {
+      if (!shapeIds[tok]) { shapeIds[tok] = 's' + Object.keys(shapeIds).length; defs.push(`<symbol id="${shapeIds[tok]}" overflow="visible">${GL.SHAPES_SVG[tok](s, state.fscale)}</symbol>`); }
+      el = `<use href="#${shapeIds[tok]}" x="${x * s}" y="${y * s}"/>`;
+    } else {
+      const fit = [...tok].length > 1 && octx.measureText(tok).width > maxW ? ` textLength="${f(maxW)}" lengthAdjust="spacingAndGlyphs"` : '';
+      el = `<text x="${f(x * s + s / 2)}" y="${f(y * s + s / 2 + s * 0.05 + drop)}"${fit}>${esc(tok)}</text>`;
+    }
+    groups.get(col).push(el);
+  }
+  const o = [`<svg xmlns="http://www.w3.org/2000/svg" xmlns:xlink="http://www.w3.org/1999/xlink" width="${W}" height="${H}" viewBox="0 0 ${W} ${H}">`];
+  const needImg = state.imgOpacity > 0 || (state.patch && state.reveal > 0);
+  if (needImg) defs.push(`<image id="src" width="${W}" height="${H}" preserveAspectRatio="none" href="${imgC.toDataURL('image/png')}"/>`);
+  if (state.grain > 0) defs.push(`<filter id="grain" x="0" y="0" width="100%" height="100%"><feTurbulence type="fractalNoise" baseFrequency="0.9" numOctaves="2" seed="3"/><feColorMatrix values="0 0 0 0 0  0 0 0 0 0  0 0 0 0 0  0 0 0 -1.4 1.1"/></filter>`);
+  if (state.patch && state.reveal > 0) {
+    const rects = [];
+    for (let by = 0; by < brows; by++) for (let bx = 0; bx < bcols; bx++) if (kinds[by * bcols + bx] === 2) rects.push(`<rect x="${bx * blk * s}" y="${by * blk * s}" width="${blk * s}" height="${blk * s}"/>`);
+    defs.push(`<clipPath id="reveal">${rects.join('')}</clipPath>`);
+  }
+  if (defs.length) o.push(`<defs>${defs.join('')}</defs>`);
+  o.push(`<rect width="100%" height="100%" fill="${state.bg}"/>`);
+  if (state.imgOpacity > 0) o.push(`<use href="#src" opacity="${state.imgOpacity}" style="mix-blend-mode:${cssBlend(state.imgBlend)}"/>`);
+  o.push(`<g id="ascii" opacity="${state.inkOpacity}" style="mix-blend-mode:${cssBlend(state.blend)}" font-family="${FONT}" font-size="${fs}" font-weight="${weight}" text-anchor="middle">`);
+  for (const [col, els] of groups) o.push(`<g fill="${col}" color="${col}">${els.join('')}</g>`);
+  o.push('</g>');
+  if (state.grain > 0) o.push(`<rect width="100%" height="100%" filter="url(#grain)" opacity="${state.grain}"/>`);
+  if (state.patch && state.reveal > 0) o.push(`<use href="#src" clip-path="url(#reveal)"/>`);
+  if (state.label) {
+    const L = labelLayout(W, H), lab = esc(state.label), ld = baseDrop(L.weight, L.fs);
+    if (L.box) o.push(`<rect x="${f(L.box[0])}" y="${f(L.box[1])}" width="${f(L.box[2])}" height="${f(L.box[3])}" fill="${L.boxFill}"/>`);
+    const rot = L.vertical ? ` transform="rotate(-90 ${f(L.x)} ${f(L.y)})"` : '';
+    o.push(`<text x="${f(L.x)}" y="${f(L.y + ld)}"${rot} font-family="${FONT}" font-size="${L.fs}" font-weight="${L.weight}" text-anchor="${L.vertical ? 'middle' : 'start'}" fill="${L.fill}">${lab}</text>`);
+  }
+  o.push('</svg>');
+  return o.join('\n');
+}
+// Geist Mono subset to just the characters used, so the SVG looks the same
+// wherever it is opened; offline the file simply falls back to a system mono
+async function fontFaces(svg) {
+  const chars = new Set();
+  for (const m of svg.matchAll(/<text[^>]*>([^<]*)<\/text>/g)) for (const c of m[1].replace(/&(amp|lt|gt|quot);/g, e => ({ '&amp;': '&', '&lt;': '<', '&gt;': '>', '&quot;': '"' })[e])) chars.add(c);
+  if (!chars.size) return '';
+  const weights = [...new Set([...svg.matchAll(/font-weight="(\d+)"/g)].map(m => m[1]))].sort().join(';');
+  try {
+    const css = await (await fetch(`https://fonts.googleapis.com/css2?family=Geist+Mono:wght@${weights}&text=${encodeURIComponent([...chars].join(''))}`)).text();
+    const faces = await Promise.all([...css.matchAll(/@font-face\s*{[^}]*}/g)].map(async ([face]) => {
+      const url = face.match(/url\(([^)]+)\)/)[1], buf = await (await fetch(url)).blob();
+      const data = await new Promise(r => { const fr = new FileReader(); fr.onload = () => r(fr.result); fr.readAsDataURL(buf); });
+      return face.replace(url, data);
+    }));
+    return faces.length ? `<style>${faces.join('')}</style>` : '';
+  } catch (e) { return ''; }
+}
+$('#svgBtn').addEventListener('click', async () => {
+  if (!source) return;
+  let svg = buildSvg();
+  const style = await fontFaces(svg);
+  if (style) svg = svg.replace('>\n', `>\n${style}\n`);
+  saveBlob(new Blob([svg], { type: 'image/svg+xml' }), fileBase() + '.svg');
+});
 
 let rec = null, chunks = [];
 function updateRecLabel() { $('#recBtn').textContent = recording ? t('recStop') : t('rec'); $('#recBtn').classList.toggle('on', recording); }
