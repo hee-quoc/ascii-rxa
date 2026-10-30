@@ -445,6 +445,16 @@ function applyPreset(id) {
 /* files */
 $('#file').addEventListener('change', e => { loadFile(e.target.files[0]); e.target.value = ''; });
 $('#sampleBtn').addEventListener('click', () => { useSample(); $('#hint').hidden = false; });
+// cloud demo: a multi-color image that shows off the color zones mode
+$('#cloudBtn').addEventListener('click', async () => {
+  try {
+    const res = await fetch('assets/cloud.jpg'); if (!res.ok) throw 0;
+    const blob = await res.blob();
+    // small bold cells so the swirls read; on the image's own off-white, darker = denser (invert)
+    Object.assign(state, { color: 'zones', cell: 10, bold: true, invert: true, bg: '#F6F5F5', imgOpacity: 0, patch: false, label: '' }); changed();
+    loadFile(new File([blob], 'cloud.jpg', { type: blob.type || 'image/jpeg' }));
+  } catch (e) { toast(t('tNoCloud')); }
+});
 function updatePlayLabel() { if (source?.kind === 'video') $('#playBtn').textContent = source.el.paused ? t('play') : t('pause'); }
 $('#playBtn').addEventListener('click', () => {
   if (source?.kind !== 'video') return;
