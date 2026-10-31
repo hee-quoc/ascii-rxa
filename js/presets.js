@@ -67,12 +67,14 @@ GL.SHAPES_SVG = (() => {
       };
       return `<path d="${bar(1)}${bar(-1)}"/>`;
     },
-    // shade blocks: fonts differ a lot here, so export them as cell-sized tiles
-    '█': s => r(0, 0, s, s),
-    '▓': s => r(0, 0, s, s).replace('/>', ' fill-opacity="0.75"/>'),
-    '▒': s => r(0, 0, s, s).replace('/>', ' fill-opacity="0.5"/>'),
-    '░': s => r(0, 0, s, s).replace('/>', ' fill-opacity="0.25"/>'),
   };
+})();
+// shade blocks as plain tiles, for the editable-text SVG only: fonts draw these very
+// differently, so a tile is the one form every editor agrees on. Outlined SVGs trace
+// the real dot pattern instead.
+GL.SHADES_SVG = (() => {
+  const t = o => s => `<rect width="${s}" height="${s}"${o < 1 ? ` fill-opacity="${o}"` : ''}/>`;
+  return { '█': t(1), '▓': t(0.75), '▒': t(0.5), '░': t(0.25) };
 })();
 
 GL.MAX_INKS = 8;

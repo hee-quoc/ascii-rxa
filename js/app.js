@@ -549,6 +549,25 @@ function tracePath(tok, s, weight, size) {
   }
   return `<path d="${d}"/>`;
 }
+// shade blocks read as a pixel pattern only at the cell's own size (at large sizes fonts
+// draw them as big dots), so keep them pixel for pixel, one opacity layer per alpha step
+const PIXEL_GLYPHS = new Set(['░', '▒', '▓']);
+function pixelPath(tok, s, weight, size) {
+  const c = document.createElement('canvas'); c.width = c.height = s;
+  const x = c.getContext('2d', { willReadFrequently: true });
+  x.fillStyle = '#fff'; x.textAlign = 'center'; x.textBaseline = 'middle';
+  x.font = `${weight} ${size}px "Geist Mono", ui-monospace, Menlo, monospace`;
+  x.fillText(tok, s / 2, s / 2 + s * 0.05);
+  const a = x.getImageData(0, 0, s, s).data, STEPS = 8, layers = Array.from({ length: STEPS + 1 }, () => '');
+  for (let yy = 0; yy < s; yy++) for (let xx = 0; xx < s;) {
+    const q = Math.round(a[(yy * s + xx) * 4 + 3] / 255 * STEPS);
+    let e = xx + 1;
+    while (e < s && Math.round(a[(yy * s + e) * 4 + 3] / 255 * STEPS) === q) e++;
+    if (q) layers[q] += `M${xx} ${yy}h${e - xx}v1h${xx - e}z`;
+    xx = e;
+  }
+  return layers.map((d, q) => d && `<path d="${d}"${q < STEPS ? ` fill-opacity="${+(q / STEPS).toFixed(3)}"` : ''}/>`).join('');
+}
 function buildSvg(fonts) {
   svgCells = [];
   try { render(performance.now()); } finally { var cells = svgCells; svgCells = null; }
@@ -560,13 +579,15 @@ function buildSvg(fonts) {
     const col = '#' + rgb.toString(16).padStart(6, '0');
     if (!groups.has(col)) groups.set(col, []);
     let el;
-    if (GL.SHAPES_SVG[tok]) {
-      if (!shapeIds[tok]) { shapeIds[tok] = 's' + Object.keys(shapeIds).length; defs.push(`<symbol id="${shapeIds[tok]}" overflow="visible">${GL.SHAPES_SVG[tok](s, state.fscale)}</symbol>`); }
+    const shape = GL.SHAPES_SVG[tok] || (!fonts && GL.SHADES_SVG[tok]);
+    if (shape) {
+      if (!shapeIds[tok]) { shapeIds[tok] = 's' + Object.keys(shapeIds).length; defs.push(`<symbol id="${shapeIds[tok]}" overflow="visible">${shape(s, state.fscale)}</symbol>`); }
       el = `<use xlink:href="#${shapeIds[tok]}" x="${x * s}" y="${y * s}"/>`;
     } else if (fonts) {
       if (!glyphIds[tok]) {
         glyphIds[tok] = 'g' + Object.keys(glyphIds).length;
-        const shape = fontPath(fonts, tok, weight, fs, s / 2, s / 2 + s * 0.05 + drop, maxW) || tracePath(tok, s, weight, fs);
+        const shape = PIXEL_GLYPHS.has(tok) ? pixelPath(tok, s, weight, fs)
+          : fontPath(fonts, tok, weight, fs, s / 2, s / 2 + s * 0.05 + drop, maxW) || tracePath(tok, s, weight, fs);
         defs.push(`<symbol id="${glyphIds[tok]}" overflow="visible">${shape}</symbol>`);
       }
       el = `<use xlink:href="#${glyphIds[tok]}" x="${x * s}" y="${y * s}"/>`;
