@@ -9,7 +9,7 @@ window.GL = window.GL || {};
 
 GL.CHARSETS = {
   classic: { ramp: ' .:-=+*#%@', name: 'Classic' },
-  dense:   { ramp: " .'`^\",:;Il!i><~+_-?][}{1)(|/tfjrxnuvczXYUJCLQ0OZmwqpdbkhao*#MW&8%B@$", name: 'Dense' },
+  dense:   { ramp: " .'`^\",:Il!i><~+_-?][}{1)(|/tfjrxnuvczXYUJCLQ0OZmwqpdbkhao*#MW&8%B@$", name: 'Dense' },
   blocks:  { ramp: ' ░▒▓█', name: 'Blocks' },
   binary:  { ramp: ' 01', name: 'Binary' },
   symbols: { ramp: ' ·+×*#', name: 'Symbols' },
@@ -48,7 +48,7 @@ GL.SHAPES = {
     x.stroke(); x.restore();
   },
 };
-// the same shapes as SVG markup for one s×s cell at the origin, in currentColor
+// the same shapes as SVG markup for one s×s cell at the origin, filled with the inherited color
 GL.SHAPES_SVG = (() => {
   const f = v => +v.toFixed(2), r = (x, y, w, h) => `<rect x="${f(x)}" y="${f(y)}" width="${f(w)}" height="${f(h)}"/>`;
   return {
@@ -58,10 +58,20 @@ GL.SHAPES_SVG = (() => {
     '▪': (s, k) => { const w = s * 0.34 * k; return r((s - w) / 2, (s - w) / 2, w, w); },
     '■': (s, k) => { const w = s * 0.78 * k; return r((s - w) / 2, (s - w) / 2, w, w); },
     '●': (s, k) => `<circle cx="${f(s / 2)}" cy="${f(s / 2)}" r="${f(s * 0.5 * k)}"/>`,
-    '✕': (s, k) => {
-      const a = s * 0.36 * k, c = s / 2;
-      return `<path d="M${f(c - a)} ${f(c - a)}L${f(c + a)} ${f(c + a)}M${f(c + a)} ${f(c - a)}L${f(c - a)} ${f(c + a)}" fill="none" stroke="currentColor" stroke-width="${f(s * 0.2 * k)}" stroke-linecap="square"/>`;
+    '✕': (s, k) => { // two square-capped bars as filled polygons (no stroke, so every editor colors it the same)
+      const a = s * 0.36 * k, h = s * 0.1 * k, c = s / 2;
+      const bar = (dx) => { // from (c-a, c-a·dx) to (c+a, c+a·dx); dx = 1 or -1
+        const ux = Math.SQRT1_2, uy = Math.SQRT1_2 * dx, nx = -uy, ny = ux;
+        const x0 = c - a - ux * h, y0 = c - a * dx - uy * h, x1 = c + a + ux * h, y1 = c + a * dx + uy * h;
+        return `M${f(x0 + nx * h)} ${f(y0 + ny * h)}L${f(x1 + nx * h)} ${f(y1 + ny * h)}L${f(x1 - nx * h)} ${f(y1 - ny * h)}L${f(x0 - nx * h)} ${f(y0 - ny * h)}Z`;
+      };
+      return `<path d="${bar(1)}${bar(-1)}"/>`;
     },
+    // shade blocks: fonts differ a lot here, so export them as cell-sized tiles
+    '█': s => r(0, 0, s, s),
+    '▓': s => r(0, 0, s, s).replace('/>', ' fill-opacity="0.75"/>'),
+    '▒': s => r(0, 0, s, s).replace('/>', ' fill-opacity="0.5"/>'),
+    '░': s => r(0, 0, s, s).replace('/>', ' fill-opacity="0.25"/>'),
   };
 })();
 

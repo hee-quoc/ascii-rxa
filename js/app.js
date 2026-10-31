@@ -515,16 +515,18 @@ function buildSvg() {
     let el;
     if (GL.SHAPES_SVG[tok]) {
       if (!shapeIds[tok]) { shapeIds[tok] = 's' + Object.keys(shapeIds).length; defs.push(`<symbol id="${shapeIds[tok]}" overflow="visible">${GL.SHAPES_SVG[tok](s, state.fscale)}</symbol>`); }
-      el = `<use href="#${shapeIds[tok]}" x="${x * s}" y="${y * s}"/>`;
+      el = `<use xlink:href="#${shapeIds[tok]}" x="${x * s}" y="${y * s}"/>`;
     } else {
-      const fit = [...tok].length > 1 && octx.measureText(tok).width > maxW ? ` textLength="${f(maxW)}" lengthAdjust="spacingAndGlyphs"` : '';
-      el = `<text x="${f(x * s + s / 2)}" y="${f(y * s + s / 2 + s * 0.05 + drop)}"${fit}>${esc(tok)}</text>`;
+      // words wider than the cell are squeezed like canvas maxWidth; a scale transform
+      // works in Figma / Illustrator, which ignore textLength
+      const tw = [...tok].length > 1 ? octx.measureText(tok).width : 0, cx = f(x * s + s / 2), cy = f(y * s + s / 2 + s * 0.05 + drop);
+      el = tw > maxW ? `<text transform="translate(${cx} ${cy}) scale(${f(maxW / tw)} 1)">${esc(tok)}</text>` : `<text x="${cx}" y="${cy}">${esc(tok)}</text>`;
     }
     groups.get(col).push(el);
   }
   const o = [`<svg xmlns="http://www.w3.org/2000/svg" xmlns:xlink="http://www.w3.org/1999/xlink" width="${W}" height="${H}" viewBox="0 0 ${W} ${H}">`];
   const needImg = state.imgOpacity > 0 || (state.patch && state.reveal > 0);
-  if (needImg) defs.push(`<image id="src" width="${W}" height="${H}" preserveAspectRatio="none" href="${imgC.toDataURL('image/png')}"/>`);
+  if (needImg) defs.push(`<image id="src" width="${W}" height="${H}" preserveAspectRatio="none" xlink:href="${imgC.toDataURL('image/png')}"/>`);
   if (state.grain > 0) defs.push(`<filter id="grain" x="0" y="0" width="100%" height="100%"><feTurbulence type="fractalNoise" baseFrequency="0.9" numOctaves="2" seed="3"/><feColorMatrix values="0 0 0 0 0  0 0 0 0 0  0 0 0 0 0  0 0 0 -1.4 1.1"/></filter>`);
   if (state.patch && state.reveal > 0) {
     const rects = [];
@@ -533,12 +535,12 @@ function buildSvg() {
   }
   if (defs.length) o.push(`<defs>${defs.join('')}</defs>`);
   o.push(`<rect width="100%" height="100%" fill="${state.bg}"/>`);
-  if (state.imgOpacity > 0) o.push(`<use href="#src" opacity="${state.imgOpacity}" style="mix-blend-mode:${cssBlend(state.imgBlend)}"/>`);
+  if (state.imgOpacity > 0) o.push(`<use xlink:href="#src" opacity="${state.imgOpacity}" style="mix-blend-mode:${cssBlend(state.imgBlend)}"/>`);
   o.push(`<g id="ascii" opacity="${state.inkOpacity}" style="mix-blend-mode:${cssBlend(state.blend)}" font-family="${FONT}" font-size="${fs}" font-weight="${weight}" text-anchor="middle">`);
-  for (const [col, els] of groups) o.push(`<g fill="${col}" color="${col}">${els.join('')}</g>`);
+  for (const [col, els] of groups) o.push(`<g fill="${col}">${els.join('')}</g>`);
   o.push('</g>');
   if (state.grain > 0) o.push(`<rect width="100%" height="100%" filter="url(#grain)" opacity="${state.grain}"/>`);
-  if (state.patch && state.reveal > 0) o.push(`<use href="#src" clip-path="url(#reveal)"/>`);
+  if (state.patch && state.reveal > 0) o.push(`<use xlink:href="#src" clip-path="url(#reveal)"/>`);
   if (state.label) {
     const L = labelLayout(W, H), lab = esc(state.label), ld = baseDrop(L.weight, L.fs);
     if (L.box) o.push(`<rect x="${f(L.box[0])}" y="${f(L.box[1])}" width="${f(L.box[2])}" height="${f(L.box[3])}" fill="${L.boxFill}"/>`);
