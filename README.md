@@ -77,6 +77,6 @@ Bộ ký tự **Bars** và **Shapes** không vẽ bằng font mà vẽ bằng h�
 ## Ghi chú
 
 - PNG có nền trong suốt: vùng trong suốt sẽ để trống, chỉ vẽ phần có hình.
-- **Xuất SVG** cho file vector: mỗi ký tự là một `<text>` (Bars/Shapes là hình vector), gom nhóm theo màu nên sửa được trong Figma / Illustrator. Font Geist Mono được nhúng sẵn (chỉ các ký tự có dùng) để mở ở đâu cũng giống bản xem trước; khi offline file dùng font mono của máy. Lớp ảnh gốc (nếu bật) được nhúng dạng PNG, hạt nhiễu thành filter SVG nên trông hơi khác bản PNG.
+- **Xuất SVG** mặc định chuyển mọi ký tự thành nét vector (như "Create Outlines"), nên mở trong Figma / Illustrator / trình duyệt đều giống bản PNG. Nét lấy từ font Geist Mono đóng gói trong `assets/fonts` (giấy phép OFL, xem `assets/fonts/OFL.txt`); ký tự font không có thì được dò nét từ chính canvas. Mỗi ký tự là một symbol dùng lại, gom nhóm theo màu nên vẫn đổi màu cả nhóm dễ dàng. Tick **SVG giữ chữ** nếu cần ký tự là chữ sửa được (máy cần cài Geist Mono). Lớp ảnh gốc (nếu bật) được nhúng dạng PNG; hạt nhiễu thành filter SVG và chế độ blend có thể bị Figma bỏ qua, nên hai phần này trông hơi khác.
 - Quay video dùng `MediaRecorder`: Chrome/Edge xuất WebM (hoặc MP4 nếu trình duyệt hỗ trợ), Safari xuất MP4.
 - Mọi xử lý đều nằm trên máy người dùng, không upload file đi đâu cả.

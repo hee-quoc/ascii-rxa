@@ -490,8 +490,10 @@ async function saveBlob(blob, name) {
 const fileBase = () => `glyphloom-${source?.name || 'out'}`;
 $('#pngBtn').addEventListener('click', () => { render(performance.now()); out.toBlob(b => b && saveBlob(b, fileBase() + '.png'), 'image/png'); });
 
-/* SVG export — glyphs become real <text> (shapes become <use> of a vector symbol),
- * grouped by color so the file stays editable in Figma / Illustrator. The source
+/* SVG export. By default every glyph is outlined to a vector path (from the bundled
+ * Geist Mono, or traced from the canvas rendering for glyphs that font lacks), so the
+ * file looks like the PNG in any app. With "editable text" glyphs stay <text> instead.
+ * Each distinct glyph is one <symbol>, placed with <use> and grouped by color. The source
  * image layer, if shown, is embedded as a PNG; grain becomes an SVG noise filter. */
 const esc = v => String(v).replace(/[&<>"]/g, c => ({ '&': '&amp;', '<': '&lt;', '>': '&gt;', '"': '&quot;' })[c]);
 const cssBlend = b => (b === 'source-over' ? 'normal' : b === 'lighter' ? 'plus-lighter' : b);
@@ -502,13 +504,58 @@ function baseDrop(weight, size) {
   octx.font = `${weight} ${size}px "Geist Mono", ui-monospace, Menlo, monospace`; octx.textBaseline = 'middle';
   return -octx.measureText('M').alphabeticBaseline || 0;
 }
-function buildSvg() {
+let fontsReady = null;
+function loadOutlineFonts() {
+  fontsReady = fontsReady || (async () => {
+    await new Promise((ok, no) => {
+      const sc = document.createElement('script'); sc.onload = ok; sc.onerror = no;
+      sc.src = 'https://cdnjs.cloudflare.com/ajax/libs/opentype.js/1.3.4/opentype.min.js'; document.head.appendChild(sc);
+    });
+    const subs = ['latin', 'latin-ext', 'symbols2', 'vietnamese'], fonts = {};
+    for (const w of [500, 700]) fonts[w] = await Promise.all(subs.map(async sub =>
+      opentype.parse(await (await fetch(`assets/fonts/geist-mono-${sub}-${w}-normal.woff`)).arrayBuffer())));
+    return fonts;
+  })().catch(e => { fontsReady = null; throw e; });
+  return fontsReady;
+}
+// outline of `tok` drawn the way the atlas draws it: centered at cx, alphabetic baseline at by,
+// words squeezed to maxW. Null when no Geist Mono subset has every character.
+function fontPath(fonts, tok, weight, size, cx, by, maxW) {
+  const font = fonts && fonts[weight].find(fo => [...tok].every(c => fo.charToGlyphIndex(c) > 0));
+  if (!font) return null;
+  const w = font.getAdvanceWidth(tok, size), k = [...tok].length > 1 && w > maxW ? maxW / w : 1;
+  const d = font.getPath(tok, 0, 0, size).toPathData(2);
+  return `<path transform="translate(${+(cx - w * k / 2).toFixed(2)} ${+by.toFixed(2)})${k < 1 ? ` scale(${+k.toFixed(4)} 1)` : ''}" d="${d}"/>`;
+}
+// fallback: trace the glyph as the browser renders it (8× the cell), merging pixel runs into rects
+function tracePath(tok, s, weight, size) {
+  const K = 8, S = s * K, c = document.createElement('canvas'); c.width = c.height = S;
+  const x = c.getContext('2d', { willReadFrequently: true });
+  x.fillStyle = '#fff'; x.textAlign = 'center'; x.textBaseline = 'middle';
+  x.font = `${weight} ${size * K}px "Geist Mono", ui-monospace, Menlo, monospace`;
+  if ([...tok].length > 1) x.fillText(tok, S / 2, S / 2 + S * 0.05, S * 0.94); else x.fillText(tok, S / 2, S / 2 + S * 0.05);
+  const a = x.getImageData(0, 0, S, S).data, g = v => +(v / K).toFixed(3);
+  let d = '', open = new Map(); // "x0,x1" → first row of a run that repeats down the rows
+  const close = (key, y0, y1) => { const [x0, x1] = key.split(',').map(Number); d += `M${g(x0)} ${g(y0)}H${g(x1)}V${g(y1)}H${g(x0)}Z`; };
+  for (let yy = 0; yy <= S; yy++) {
+    const now = new Map();
+    if (yy < S) for (let xx = 0, run = -1; xx <= S; xx++) {
+      const on = xx < S && a[(yy * S + xx) * 4 + 3] >= 128;
+      if (on && run < 0) run = xx;
+      else if (!on && run >= 0) { const key = run + ',' + xx; now.set(key, open.has(key) ? open.get(key) : yy); run = -1; }
+    }
+    for (const [key, y0] of open) if (!now.has(key)) close(key, y0, yy);
+    open = now;
+  }
+  return `<path d="${d}"/>`;
+}
+function buildSvg(fonts) {
   svgCells = [];
   try { render(performance.now()); } finally { var cells = svgCells; svgCells = null; }
   const { W, H, s, bcols, brows, blk, kinds } = lastInfo, f = v => +v.toFixed(2);
   const fs = f(s * state.fscale), weight = state.bold ? 700 : 500, maxW = s * 0.94;
   const drop = baseDrop(weight, fs);
-  const defs = [], shapeIds = {}, groups = new Map();
+  const defs = [], shapeIds = {}, glyphIds = {}, groups = new Map();
   for (const [x, y, tok, rgb] of cells) {
     const col = '#' + rgb.toString(16).padStart(6, '0');
     if (!groups.has(col)) groups.set(col, []);
@@ -516,6 +563,13 @@ function buildSvg() {
     if (GL.SHAPES_SVG[tok]) {
       if (!shapeIds[tok]) { shapeIds[tok] = 's' + Object.keys(shapeIds).length; defs.push(`<symbol id="${shapeIds[tok]}" overflow="visible">${GL.SHAPES_SVG[tok](s, state.fscale)}</symbol>`); }
       el = `<use xlink:href="#${shapeIds[tok]}" x="${x * s}" y="${y * s}"/>`;
+    } else if (fonts) {
+      if (!glyphIds[tok]) {
+        glyphIds[tok] = 'g' + Object.keys(glyphIds).length;
+        const shape = fontPath(fonts, tok, weight, fs, s / 2, s / 2 + s * 0.05 + drop, maxW) || tracePath(tok, s, weight, fs);
+        defs.push(`<symbol id="${glyphIds[tok]}" overflow="visible">${shape}</symbol>`);
+      }
+      el = `<use xlink:href="#${glyphIds[tok]}" x="${x * s}" y="${y * s}"/>`;
     } else {
       // words wider than the cell are squeezed like canvas maxWidth; a scale transform
       // works in Figma / Illustrator, which ignore textLength
@@ -545,7 +599,13 @@ function buildSvg() {
     const L = labelLayout(W, H), lab = esc(state.label), ld = baseDrop(L.weight, L.fs);
     if (L.box) o.push(`<rect x="${f(L.box[0])}" y="${f(L.box[1])}" width="${f(L.box[2])}" height="${f(L.box[3])}" fill="${L.boxFill}"/>`);
     const rot = L.vertical ? ` transform="rotate(-90 ${f(L.x)} ${f(L.y)})"` : '';
-    o.push(`<text x="${f(L.x)}" y="${f(L.y + ld)}"${rot} font-family="${FONT}" font-size="${L.fs}" font-weight="${L.weight}" text-anchor="${L.vertical ? 'middle' : 'start'}" fill="${L.fill}">${lab}</text>`);
+    // canvas draws the label centered (vertical, after rotating) or left-aligned (boxed)
+    const lf = fonts && fonts[L.weight].find(fo => [...state.label].every(c => fo.charToGlyphIndex(c) > 0));
+    if (lf) {
+      const w = lf.getAdvanceWidth(state.label, L.fs);
+      if (L.vertical) o.push(`<g transform="translate(${f(L.x)} ${f(L.y)}) rotate(-90)" fill="${L.fill}">${fontPath(fonts, state.label, L.weight, L.fs, 0, ld, Infinity)}</g>`);
+      else o.push(`<g fill="${L.fill}">${fontPath(fonts, state.label, L.weight, L.fs, L.x + w / 2, L.y + ld, Infinity)}</g>`);
+    } else o.push(`<text x="${f(L.x)}" y="${f(L.y + ld)}"${rot} font-family="${FONT}" font-size="${L.fs}" font-weight="${L.weight}" text-anchor="${L.vertical ? 'middle' : 'start'}" fill="${L.fill}">${lab}</text>`);
   }
   o.push('</svg>');
   return o.join('\n');
@@ -569,9 +629,11 @@ async function fontFaces(svg) {
 }
 $('#svgBtn').addEventListener('click', async () => {
   if (!source) return;
-  let svg = buildSvg();
-  const style = await fontFaces(svg);
-  if (style) svg = svg.replace('>\n', `>\n${style}\n`);
+  const editable = $('#svgText').checked;
+  let fonts = null;
+  if (!editable) try { fonts = await loadOutlineFonts(); } catch (e) { toast(t('tSvgFonts')); }
+  let svg = buildSvg(fonts);
+  if (!fonts) { const style = await fontFaces(svg); if (style) svg = svg.replace('>\n', `>\n${style}\n`); }
   saveBlob(new Blob([svg], { type: 'image/svg+xml' }), fileBase() + '.svg');
 });
 
