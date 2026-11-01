@@ -1,3 +1,4 @@
+/* Glyph Loom · Author: Hy Nguyen */
 /* Glyph Loom — procedural animated dragon used as the demo source.
  * Draws into a 1000×1000 canvas; call every frame with a timestamp in ms. */
 window.GL = window.GL || {};

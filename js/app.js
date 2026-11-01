@@ -1,3 +1,4 @@
+/* Glyph Loom · Author: Hy Nguyen */
 /* Glyph Loom — engine + UI.
  * Pipeline per frame:
  *   source → sampled to a cols×rows grid → brightness picks a glyph from the

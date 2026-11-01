@@ -1,3 +1,4 @@
+/* Glyph Loom · Author: Hy Nguyen */
 /* Glyph Loom — color zones.
  * The source is split into a few dominant colors (k-means in Oklab). Every
  * cell then belongs to its nearest zone, and each zone has its own glyph set

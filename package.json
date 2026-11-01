@@ -2,6 +2,7 @@
   "name": "glyph-loom",
   "version": "1.0.0",
   "private": true,
+  "author": "Hy Nguyen",
   "description": "ASCII generative system — images, SVG and video to character grids",
   "scripts": {
     "dev": "npx serve ."

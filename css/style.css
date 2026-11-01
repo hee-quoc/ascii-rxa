@@ -1,3 +1,4 @@
+/* Glyph Loom · Author: Hy Nguyen */
 /* Layout: stage on the left like a loom frame, a dense control rail on the right; stacks on phones. */
 :root{
   --bg:#ECEDE8; --panel:#F7F7F3; --line:#D6D8D0; --fg:#18191A; --muted:#6B6E68;

@@ -1,3 +1,4 @@
+/* Glyph Loom · Author: Hy Nguyen */
 /* Glyph Loom — character sets, defaults and presets.
  *
  * Palette mode maps brightness to glyph colors in order: inks[0] = darkest

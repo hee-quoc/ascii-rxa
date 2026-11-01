@@ -1,3 +1,4 @@
+/* Glyph Loom · Author: Hy Nguyen */
 /* Glyph Loom — UI strings (Tiếng Việt / English) */
 window.GL = window.GL || {};
 
