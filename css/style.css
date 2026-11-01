@@ -39,6 +39,7 @@ button.rec{font-family:var(--f-mono)}
 button.rec.on{background:var(--fg);color:var(--bg)}
 .btn input{display:none}
 
+.copy{margin:-4px 0 0;font-size:11px;color:var(--muted);text-align:center}
 .rail{background:var(--panel);border:1px solid var(--line);border-radius:6px;overflow:auto;min-height:0;min-width:0}
 section{padding:14px 14px 16px;border-bottom:1px solid var(--line);display:grid;gap:10px}
 section:last-child{border-bottom:0}
