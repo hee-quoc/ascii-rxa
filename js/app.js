@@ -471,18 +471,8 @@ const frame = $('#frame');
 frame.addEventListener('drop', e => loadFile(e.dataTransfer.files[0]));
 window.addEventListener('paste', e => { const f = [...(e.clipboardData?.files || [])][0]; if (f) loadFile(f); });
 
-/* export — a normal download link, or the claude.ai "downloads" capability when hosted there */
-let dl = null;
-const inClaude = !!(window.claude && window.claude.use);
-const dlReady = inClaude ? window.claude.use('downloads').then(x => (dl = x)).catch(() => null) : Promise.resolve(null);
-async function saveBlob(blob, name) {
-  if (inClaude) {
-    await dlReady;
-    if (!dl) { toast(t('tNoDownload')); return; }
-    try { await dl.save({ filename: name, data: blob }); toast(`${t('tSaved')} ${name}`); }
-    catch (e) { if (e && e.code !== 'declined') toast(`${t('tSaveFail')}: ${e.message || e.code}`); }
-    return;
-  }
+/* export — a plain download link */
+function saveBlob(blob, name) {
   const a = document.createElement('a'); a.href = URL.createObjectURL(blob); a.download = name;
   document.body.appendChild(a); a.click(); a.remove();
   setTimeout(() => URL.revokeObjectURL(a.href), 4000);
