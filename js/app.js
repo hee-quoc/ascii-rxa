@@ -450,16 +450,17 @@ function applyPreset(id) {
 /* files */
 $('#file').addEventListener('change', e => { loadFile(e.target.files[0]); e.target.value = ''; });
 $('#sampleBtn').addEventListener('click', () => { useSample(); $('#hint').hidden = false; });
-// cloud demo: a multi-color image that shows off the color zones mode
-$('#cloudBtn').addEventListener('click', async () => {
+// cloud demo: a multi-color image that shows off the color zones mode; also what the page opens with
+async function useCloud() {
   try {
     const res = await fetch('assets/cloud.jpg'); if (!res.ok) throw 0;
     const blob = await res.blob();
     // small bold cells so the swirls read; on the image's own off-white, darker = denser (invert)
     Object.assign(state, { color: 'zones', cell: 10, bold: true, invert: true, bg: '#F6F5F5', imgOpacity: 0, patch: false, label: '' }); changed();
     loadFile(new File([blob], 'cloud.jpg', { type: blob.type || 'image/jpeg' }));
-  } catch (e) { toast(t('tNoCloud')); }
-});
+  } catch (e) { if (source) toast(t('tNoCloud')); else useSample(); }
+}
+$('#cloudBtn').addEventListener('click', useCloud);
 function updatePlayLabel() { if (source?.kind === 'video') $('#playBtn').textContent = source.el.paused ? t('play') : t('pause'); }
 $('#playBtn').addEventListener('click', () => {
   if (source?.kind !== 'video') return;
@@ -677,7 +678,7 @@ document.querySelectorAll('[data-lang]').forEach(b => b.addEventListener('click'
 GL.onLangChange = () => { buildDynamicLabels(); syncUI(); };
 
 /* boot */
-GL.applyLang(); buildDynamicLabels(); syncUI(); useSample();
+GL.applyLang(); buildDynamicLabels(); syncUI(); useCloud();
 (document.fonts ? Promise.all([document.fonts.load('500 20px "Geist Mono"'), document.fonts.load('700 20px "Geist Mono"')]) : Promise.resolve())
   .finally(() => { for (const k in atlasCache) delete atlasCache[k]; dirty = true; });
 requestAnimationFrame(loop);

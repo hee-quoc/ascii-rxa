@@ -68,7 +68,7 @@ Chế độ màu **Vùng** chia ảnh theo màu thay vì theo độ sáng. Khi t
 
 Mỗi ô ký tự thuộc về vùng có màu gốc gần nhất (so theo sắc độ nhiều hơn độ sáng, nên mặt sáng và mặt tối của một đám mây vẫn chung một vùng). Trong vùng đó, độ sáng chọn ký tự thưa hay dày. **Độ rộng vùng** dưới 100% sẽ bỏ trống những chỗ không đủ giống vùng nào. Bấm thẳng lên ảnh để thêm vùng mới. Đổi preset không làm mất các vùng.
 
-Nút **Mây demo** mở `assets/cloud.jpg` và bật sẵn chế độ Vùng để xem nhanh tính năng này.
+Trang mở sẵn ảnh mây `assets/cloud.jpg` ở chế độ Vùng; nút **Mây demo** mở lại ảnh này. Con rồng demo (`js/dragon.js`) đã ẩn khỏi giao diện và chỉ dùng khi không tải được ảnh mây.
 
 Thêm biến thể mới: thêm một mục vào `GL.PRESETS` trong `js/presets.js`.
 
