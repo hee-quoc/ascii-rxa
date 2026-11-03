@@ -29,6 +29,7 @@ js/i18n.js        chuỗi chữ VI / EN, nút chuyển ngôn ngữ
 js/presets.js     bộ ký tự, giá trị mặc định, các biến thể + bảng màu
 js/zones.js       tìm vùng màu (k-means trong Oklab) + gán ô vào vùng
 js/dragon.js      con rồng demo vẽ bằng canvas
+js/mode2.js       mode 2: mây generative (đang thử nghiệm)
 js/app.js         engine render + xử lý UI
 ```
 
@@ -73,6 +74,10 @@ Trang mở sẵn ảnh mây `assets/cloud.jpg` ở chế độ Vùng; nút **Mâ
 Thêm biến thể mới: thêm một mục vào `GL.PRESETS` trong `js/presets.js`.
 
 Bộ ký tự **Bars** và **Shapes** không vẽ bằng font mà vẽ bằng hình học (`GL.SHAPES`), nên thanh ngang và chấm tròn lấp kín ô và nối liền nhau. Thanh **Hạt nhiễu / Grain** phủ một lớp nhiễu tĩnh lên ảnh xuất.
+
+## Mode 2 (thử nghiệm)
+
+Nút **Mode 2** sinh cụm mây kiểu tường vân. Mỗi cụm gồm bướu chính có xoắn ốc, bướu vai và bướu hai bên, nối mềm với nhau và cắt phẳng theo đường nền. Các sọc là những đường viền lùi vào trong: viền sáng ở ngoài, đậm dần vào tâm. Bảng Mode 2 ở đầu cột phải chỉnh số hàng, số cụm, số sọc, số vòng xoắn và tạo mây mới. Toàn bộ code nằm trong `js/mode2.js`; xoá dòng `<script src="js/mode2.js">` trong `index.html` là mode này ẩn hoàn toàn.
 
 ## Ghi chú
 

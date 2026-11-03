@@ -24,7 +24,7 @@ let state = withInks(clone({ ...DEFAULTS, ...PRESETS[GL.DEFAULT_PRESET] }));
 let activePreset = GL.DEFAULT_PRESET;
 
 /* ---------- sources ---------- */
-let source = null;               // { kind: 'sample' | 'image' | 'video', el, name }
+let source = null;               // { kind: 'sample' | 'image' | 'video' | 'mode2', el, name }
 const dragonCanvas = document.createElement('canvas');
 dragonCanvas.width = 1000; dragonCanvas.height = 1000;
 
@@ -242,7 +242,8 @@ function render(time) {
 }
 function updateMeta() {
   if (!lastInfo || !source) return;
-  const kind = { sample: t('kindSample'), image: t('kindImage'), video: t('kindVideo') }[source.kind];
+  const kind = { sample: t('kindSample'), image: t('kindImage'), video: t('kindVideo'), mode2: 'Mode 2' }[source.kind];
+  if (GL.mode2?.panel) GL.mode2.panel.hidden = source.kind !== 'mode2';
   $('#meta').textContent = `${lastInfo.cols} × ${lastInfo.rows} ${t('chars')} · ${lastInfo.W} × ${lastInfo.H} px · ${kind}`;
 }
 // label geometry and colors, shared by the canvas and the SVG export
@@ -461,6 +462,17 @@ async function useCloud() {
   } catch (e) { if (source) toast(t('tNoCloud')); else useSample(); }
 }
 $('#cloudBtn').addEventListener('click', useCloud);
+// mode 2: generative clouds, all in js/mode2.js; without that script the button stays hidden
+if (GL.mode2) {
+  GL.mode2.mount($('.rail'), () => { if (source?.kind === 'mode2') detectZones(); });
+  $('#mode2Btn').hidden = false;
+  $('#mode2Btn').addEventListener('click', () => {
+    clearVideo(); GL.mode2.draw();
+    Object.assign(state, { color: 'zones', cell: 10, bold: true, invert: true, bg: GL.mode2.BG, imgOpacity: 0, patch: false, label: '' }); changed();
+    source = { kind: 'mode2', el: GL.mode2.canvas, name: 'mode2' };
+    detectZones(); $('#playBtn').hidden = true; $('#hint').hidden = true;
+  });
+}
 function updatePlayLabel() { if (source?.kind === 'video') $('#playBtn').textContent = source.el.paused ? t('play') : t('pause'); }
 $('#playBtn').addEventListener('click', () => {
   if (source?.kind !== 'video') return;
