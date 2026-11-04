@@ -50,6 +50,7 @@ h2{margin:0;font:600 10px/1 var(--f-mono);letter-spacing:.14em;text-transform:up
 .preset span{font:500 10.5px/1 var(--f-mono);padding:5px 6px;letter-spacing:.02em}
 .preset.on{border-color:var(--accent);box-shadow:0 0 0 1px var(--accent)}
 .seg{display:grid;grid-template-columns:repeat(4,1fr);gap:4px}
+.m2-view{grid-template-columns:1fr 1fr}
 .seg button{padding:7px 4px;font:500 11px/1 var(--f-mono);white-space:nowrap;overflow:hidden}
 .seg button.on{background:var(--fg);color:var(--bg);border-color:var(--fg)}
 .row{display:grid;grid-template-columns:88px minmax(0,1fr) 42px;align-items:center;gap:8px}

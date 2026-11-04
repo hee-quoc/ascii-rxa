@@ -63,7 +63,7 @@ js/app.js         engine render + xử lý UI
 
 ## Nền
 
-Ở mục Màu, **Tắt nền** bỏ lớp nền phủ cả khung (PNG / SVG xuất ra trong suốt). **Nền từng ô** đặt một ô vuông màu riêng sau mỗi ký tự được vẽ, nên khi tắt nền khung hình không bị thủng mà nền chạy theo đúng từng ô ký tự. Lớp ảnh gốc giờ chỉ bật / tắt, không còn thanh chỉnh độ mờ của ảnh hay của ASCII.
+Ở mục Màu, **Tắt nền** bỏ lớp nền phủ cả khung (PNG / SVG xuất ra trong suốt). **Nền từng ô** đặt một ô vuông màu riêng sau các ô có ký tự; những ô trống nằm lọt bên trong hình (ký tự trắng, vùng bị cắt tối) cũng được lấp, nên khi tắt nền hình không bị thủng mà nền chạy theo đúng từng ô của hình. Lớp ảnh gốc giờ chỉ bật / tắt, không còn thanh chỉnh độ mờ của ảnh hay của ASCII.
 
 ## Vùng màu
 
@@ -84,7 +84,15 @@ Bộ ký tự **Bars** và **Shapes** không vẽ bằng font mà vẽ bằng h�
 
 ## Mode 2 (thử nghiệm)
 
-Nút **Mode 2** sinh cụm mây kiểu tường vân. Mỗi cụm gồm bướu chính có xoắn ốc, bướu vai và bướu hai bên, nối mềm với nhau và cắt phẳng theo đường nền. Các sọc là những đường viền lùi vào trong: viền sáng ở ngoài, đậm dần vào tâm. **Dải mây** mọc từ giữa ra hai phía, uốn chữ S với góc rẽ mỗi bước có giới hạn, và luôn bị kéo về hướng ban đầu nên không trôi ra ngoài khung. Mỗi đầu dải hoặc vuốt nhọn, hoặc cuộn thành móc xoắn (độ cong tăng dần, bề dày giữ dưới một phần ba bán kính cuộn để các vòng không dính nhau). Dải nằm sau các cụm và dùng cùng kiểu sọc. Bảng Mode 2 ở đầu cột phải chỉnh số hàng, số cụm, số sọc, số vòng xoắn, số dải mây, độ uốn và tạo mây mới. Toàn bộ code nằm trong `js/mode2.js`; xoá dòng `<script src="js/mode2.js">` trong `index.html` là mode này ẩn hoàn toàn.
+Nút **Mode 2** sinh mây tường vân có chuyển động. Mỗi cảnh gồm vài nhóm mây; mỗi nhóm là một cụm mây và các dải mây chảy ra từ chính cụm đó, nên mây và dải luôn liền nhau.
+
+- **Cụm mây**: bướu chính, bướu vai và bướu hai bên nối mềm với nhau, tô một màu, vẽ bằng nét sáng: viền ngoài, các đường viền lùi vào trong và xoắn ốc trong mỗi bướu lớn (các xoắn cạnh nhau xoay ngược chiều).
+- **Dải mây**: bắt đầu từ dưới cụm, chảy về phía giữa khung, uốn sóng nhưng luôn bị kéo về hướng ban đầu. Mỗi dải là một bó sọc nhiều màu song song, ngăn bởi nét sáng. Đuôi dải vuốt nhọn, cuộn thành móc xoắn, hoặc kết thúc bằng một cụm mây nhỏ.
+- **Chuyển động**: dải mây lượn, xoắn ốc quay, cụm mây bồng bềnh nhẹ.
+- **Hiển thị**: mặc định là **Mây gốc** (chưa chuyển sang ASCII); bấm **ASCII** để xem bản ký tự.
+- **Bảng màu**: Tường vân, Kim nâu, Đỏ son, Lagoon.
+
+Bảng Mode 2 ở đầu cột phải chỉnh tốc độ, số cụm, số dải mỗi cụm, số đường viền, số vòng xoắn, độ uốn và tạo mây mới. Toàn bộ code nằm trong `js/mode2.js`; xoá dòng `<script src="js/mode2.js">` trong `index.html` là mode này ẩn hoàn toàn.
 
 ## Ghi chú
 

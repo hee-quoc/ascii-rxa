@@ -143,14 +143,52 @@ function setSize(c, w, h) { if (c.width !== w || c.height !== h) { c.width = w; 
 let lastInfo = null;
 let svgCells = null; // when set, render() also records every drawn glyph here for the SVG export
 
+/* The per-cell background follows the glyph cells, but blank glyphs and cut darks inside
+ * a shape would leave holes. A closing (grow 1 cell, then shrink 1) seals gaps up to two
+ * cells wide, and any empty area the outside cannot reach is filled. */
+function solidMask(m, cols, rows) {
+  const at = (a, x, y, out) => (x < 0 || y < 0 || x >= cols || y >= rows ? out : a[y * cols + x]);
+  const near = (a, x, y, out, want) => { for (let dy = -1; dy <= 1; dy++) for (let dx = -1; dx <= 1; dx++) if (at(a, x + dx, y + dy, out) === want) return true; return false; };
+  const grown = new Uint8Array(m.length), closed = new Uint8Array(m.length);
+  for (let y = 0; y < rows; y++) for (let x = 0; x < cols; x++) grown[y * cols + x] = near(m, x, y, 0, 1) ? 1 : 0;
+  for (let y = 0; y < rows; y++) for (let x = 0; x < cols; x++) closed[y * cols + x] = near(grown, x, y, 1, 0) ? m[y * cols + x] : 1;
+  const outside = new Uint8Array(m.length), stack = [];
+  const push = i => { if (!closed[i] && !outside[i]) { outside[i] = 1; stack.push(i); } };
+  for (let x = 0; x < cols; x++) { push(x); push((rows - 1) * cols + x); }
+  for (let y = 0; y < rows; y++) { push(y * cols); push(y * cols + cols - 1); }
+  while (stack.length) {
+    const i = stack.pop(), x = i % cols, y = (i / cols) | 0;
+    if (x > 0) push(i - 1); if (x < cols - 1) push(i + 1); if (y > 0) push(i - cols); if (y < rows - 1) push(i + cols);
+  }
+  for (let i = 0; i < m.length; i++) closed[i] = outside[i] ? 0 : 1;
+  return closed;
+}
+// horizontal runs [x, y, length] of filled cells
+function maskRuns(m, cols, rows) {
+  const runs = [];
+  for (let y = 0; y < rows; y++) for (let x = 0; x < cols; x++) {
+    if (!m[y * cols + x]) continue;
+    let n = 1; while (x + n < cols && m[y * cols + x + n]) n++;
+    runs.push([x, y, n]); x += n - 1;
+  }
+  return runs;
+}
+
 function render(time) {
   if (!source) return;
   if (source.kind === 'sample') GL.drawDragon(dragonCanvas, time);
+  if (source.kind === 'mode2') GL.mode2.draw(time);
   const [sw, sh] = srcSize(source); if (!sw || !sh) return;
   const ar = state.frame === 'source' ? sw / sh : +state.frame;
   const s = state.cell, outW = +state.size, outH = Math.round(outW / ar);
   const cols = Math.max(1, Math.floor(outW / s)), rows = Math.max(1, Math.floor(outH / s));
   const W = cols * s, H = rows * s;
+  if (source.kind === 'mode2' && GL.mode2.plain) { // mode 2's plain view: the clouds as drawn, no glyphs
+    setSize(out, W, H); octx.globalAlpha = 1; octx.globalCompositeOperation = 'source-over'; octx.imageSmoothingQuality = 'high';
+    drawCover(octx, source.el, sw, sh, W, H);
+    lastInfo = { cols, rows, W, H, s, brows: 0, bcols: 0, blk: 1, kinds: new Uint8Array(0), cellRuns: null, plain: true }; updateMeta();
+    return;
+  }
   [out, maskC, inkC, imgC].forEach(c => setSize(c, W, H));
   setSize(sampC, cols, rows); setSize(colC, cols, rows);
 
@@ -173,7 +211,7 @@ function render(time) {
     kinds[by * bcols + bx] = r < state.reveal ? 2 : r < state.reveal + state.alt ? 1 : r < state.reveal + state.alt + state.flip ? 3 : 0;
   }
   mctx.clearRect(0, 0, W, H);
-  const cellsOn = state.cellBg ? [] : null;   // cells that got a glyph, for the per-cell background
+  const cellsOn = state.cellBg ? new Uint8Array(cols * rows) : null;   // cells that got a glyph, for the per-cell background
   const { bright, contrast, gamma, cut, invert, sat, flicker } = state;
   for (let y = 0; y < rows; y++) for (let x = 0; x < cols; x++) {
     const i = (y * cols + x) * 4;
@@ -203,7 +241,7 @@ function render(time) {
       if (at.empty[lev]) continue;
     }
     mctx.drawImage(at.c, lev * s, 0, s, s, x * s, y * s, s, s);
-    if (cellsOn) cellsOn.push(x, y);
+    if (cellsOn) cellsOn[y * cols + x] = 1;
     let cr, cg, cb;
     switch (zk >= 0 ? 'zone' : state.color) {
       case 'zone': [cr, cg, cb] = zInk[zk]; break;
@@ -230,9 +268,10 @@ function render(time) {
 
   octx.globalCompositeOperation = 'source-over'; octx.globalAlpha = 1;
   if (state.bgOff) octx.clearRect(0, 0, W, H); else { octx.fillStyle = state.bg; octx.fillRect(0, 0, W, H); }
-  if (cellsOn) {
+  const cellRuns = cellsOn ? maskRuns(solidMask(cellsOn, cols, rows), cols, rows) : null;
+  if (cellRuns) {
     octx.fillStyle = state.cellBgColor; octx.beginPath();
-    for (let k = 0; k < cellsOn.length; k += 2) octx.rect(cellsOn[k] * s, cellsOn[k + 1] * s, s, s);
+    for (const [x, y, n] of cellRuns) octx.rect(x * s, y * s, n * s, s);
     octx.fill();
   }
   if (state.imgOpacity > 0) { octx.globalAlpha = state.imgOpacity; octx.globalCompositeOperation = state.imgBlend; octx.drawImage(imgC, 0, 0); }
@@ -245,7 +284,7 @@ function render(time) {
     octx.clip(); octx.drawImage(imgC, 0, 0); octx.restore();
   }
   if (state.label) drawLabel(W, H);
-  lastInfo = { cols, rows, W, H, s, brows, bcols, blk, kinds }; updateMeta();
+  lastInfo = { cols, rows, W, H, s, brows, bcols, blk, kinds, cellRuns }; updateMeta();
 }
 function updateMeta() {
   if (!lastInfo || !source) return;
@@ -286,7 +325,7 @@ function drawLabel(W, H) {
 
 let recording = false;
 function loop(time) {
-  const animated = (source && (source.kind === 'sample' || (source.kind === 'video' && !source.el.paused))) || state.flicker > 0 || recording;
+  const animated = (source && (source.kind === 'sample' || (source.kind === 'mode2' && GL.mode2.moving) || (source.kind === 'video' && !source.el.paused))) || state.flicker > 0 || recording;
   if (dirty || animated) { dirty = false; render(time); }
   requestAnimationFrame(loop);
 }
@@ -318,6 +357,7 @@ function buildDynamicLabels() {
   document.querySelectorAll('.preset span').forEach(sp => sp.textContent = PRESETS[sp.parentNode.dataset.p].name[GL.lang]);
   document.querySelectorAll('#inks input').forEach((c, i) => c.setAttribute('aria-label', `${t('inkLabel')} ${i + 1}`));
   updatePlayLabel(); updateRecLabel(); updateMeta(); renderZones(); buildLib();
+  if (GL.mode2?.relabel) GL.mode2.relabel();
 }
 const inkBox = $('#inks');
 for (let i = 0; i < GL.MAX_INKS; i++) {
@@ -503,9 +543,11 @@ $('#file').addEventListener('change', e => { loadFile(e.target.files[0]); e.targ
 $('#sampleBtn').addEventListener('click', () => { useSample(); $('#hint').hidden = false; });
 // cloud demo: a multi-color image that shows off the color zones mode; also what the page opens with
 async function useCloud() {
+  const before = source;
   try {
     const res = await fetch('assets/cloud.jpg'); if (!res.ok) throw 0;
     const blob = await res.blob();
+    if (source !== before) return; // something else was opened while this loaded
     // small bold cells so the swirls read; on the image's own off-white, darker = denser (invert)
     Object.assign(state, { color: 'zones', cell: 10, bold: true, invert: true, bg: '#F6F5F5', imgOpacity: 0, patch: false, label: '' }); changed();
     loadFile(new File([blob], 'cloud.jpg', { type: blob.type || 'image/jpeg' }));
@@ -514,11 +556,17 @@ async function useCloud() {
 $('#cloudBtn').addEventListener('click', useCloud);
 // mode 2: generative clouds, all in js/mode2.js; without that script the button stays hidden
 if (GL.mode2) {
-  GL.mode2.mount($('.rail'), () => { if (source?.kind === 'mode2') detectZones(); });
+  GL.mode2.mount($('.rail'), what => {
+    if (what === 'palette') { state.bg = GL.mode2.bg; syncUI(); }
+    if (source?.kind === 'mode2' && state.color === 'zones' && what !== 'view') detectZones();
+    dirty = true;
+  });
   $('#mode2Btn').hidden = false;
   $('#mode2Btn').addEventListener('click', () => {
-    clearVideo(); GL.mode2.draw();
-    Object.assign(state, { color: 'zones', cell: 10, bold: true, invert: true, bg: GL.mode2.BG, imgOpacity: 0, patch: false, label: '' }); changed();
+    clearVideo(); GL.mode2.reset(); GL.mode2.draw(performance.now());
+    // the ASCII view colors each glyph from the clouds themselves; light ground, so darker = denser
+    Object.assign(state, { color: 'source', sat: 1.1, cell: 9, bold: true, invert: true, contrast: 1.25, cut: 0.04, bg: GL.mode2.bg,
+      bgOff: false, cellBg: false, imgOpacity: 0, patch: false, label: '' }); changed();
     source = { kind: 'mode2', el: GL.mode2.canvas, name: 'mode2' };
     detectZones(); $('#playBtn').hidden = true; $('#hint').hidden = true;
   });
@@ -626,6 +674,7 @@ function buildSvg(fonts) {
   svgCells = [];
   try { render(performance.now()); } finally { var cells = svgCells; svgCells = null; }
   const { W, H, s, bcols, brows, blk, kinds } = lastInfo, f = v => +v.toFixed(2);
+  if (lastInfo.plain) return `<svg xmlns="http://www.w3.org/2000/svg" xmlns:xlink="http://www.w3.org/1999/xlink" width="${W}" height="${H}" viewBox="0 0 ${W} ${H}"><image width="${W}" height="${H}" xlink:href="${out.toDataURL('image/png')}"/></svg>`;
   const fs = f(s * state.fscale), weight = state.bold ? 700 : 500, maxW = s * 0.94;
   const drop = baseDrop(weight, fs);
   const defs = [], shapeIds = {}, glyphIds = {}, groups = new Map();
@@ -664,7 +713,8 @@ function buildSvg(fonts) {
   }
   if (defs.length) o.push(`<defs>${defs.join('')}</defs>`);
   if (!state.bgOff) o.push(`<rect width="100%" height="100%" fill="${state.bg}"/>`);
-  if (state.cellBg && cells.length) o.push(`<path id="cell-bg" fill="${state.cellBgColor}" d="${cells.map(([x, y]) => `M${x * s} ${y * s}h${s}v${s}h-${s}z`).join('')}"/>`);
+  const { cellRuns } = lastInfo;
+  if (cellRuns && cellRuns.length) o.push(`<path id="cell-bg" fill="${state.cellBgColor}" d="${cellRuns.map(([x, y, n]) => `M${x * s} ${y * s}h${n * s}v${s}h-${n * s}z`).join('')}"/>`);
   if (state.imgOpacity > 0) o.push(`<use xlink:href="#src" opacity="${state.imgOpacity}" style="mix-blend-mode:${cssBlend(state.imgBlend)}"/>`);
   o.push(`<g id="ascii" opacity="${state.inkOpacity}" style="mix-blend-mode:${cssBlend(state.blend)}" font-family="${FONT}" font-size="${fs}" font-weight="${weight}" text-anchor="middle">`);
   for (const [col, els] of groups) o.push(`<g fill="${col}">${els.join('')}</g>`);
