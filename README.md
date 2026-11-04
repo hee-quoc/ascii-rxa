@@ -84,15 +84,16 @@ Bộ ký tự **Bars** và **Shapes** không vẽ bằng font mà vẽ bằng h�
 
 ## Mode 2 (thử nghiệm)
 
-Nút **Mode 2** sinh mây tường vân có chuyển động. Mỗi cảnh gồm vài nhóm mây; mỗi nhóm là một cụm mây và các dải mây chảy ra từ chính cụm đó, nên mây và dải luôn liền nhau.
+Nút **Mode 2** sinh mây tường vân có chuyển động, khung dọc. Cảnh gồm một dải mây lớn uốn lượn từ trên xuống rồi đổ vào lớp mây phía dưới.
 
-- **Cụm mây**: bướu chính, bướu vai và bướu hai bên nối mềm với nhau, tô một màu, vẽ bằng nét sáng: viền ngoài, các đường viền lùi vào trong và xoắn ốc trong mỗi bướu lớn (các xoắn cạnh nhau xoay ngược chiều).
-- **Dải mây**: bắt đầu từ dưới cụm, chảy về phía giữa khung, uốn sóng nhưng luôn bị kéo về hướng ban đầu. Mỗi dải là một bó sọc nhiều màu song song, ngăn bởi nét sáng. Đuôi dải vuốt nhọn, cuộn thành móc xoắn, hoặc kết thúc bằng một cụm mây nhỏ.
-- **Chuyển động**: dải mây lượn, xoắn ốc quay, cụm mây bồng bềnh nhẹ.
+- **Dải mây**: đi theo đường uốn khúc (chạy gần ngang qua khung, quay đầu tròn ở hai bên), phình to ở mỗi khúc quay và có các bướu mây nhô ra phía ngoài khúc quay. Một số khúc quay có cụm mây gắn liền. Dải, bướu và cụm trên dải là một khối liền (nối mềm bằng smooth union), nên không bao giờ tách rời.
+- **Lớp mây dưới**: hai hàng cụm mây; mỗi cụm có viền riêng, dải mây chen giữa hàng sau và hàng trước.
+- **Tô màu theo độ sâu từ mép vào**: viền ánh kim, nét sáng, màu thân, rồi các đường viền trong chạy song song theo mép. Bướu lớn có xoắn chữ C (dải sáng, lõi màu), các xoắn cạnh nhau xoay ngược chiều.
+- **Chuyển động**: dải mây lượn, xoắn quay, lớp mây dưới bồng bềnh.
 - **Hiển thị**: mặc định là **Mây gốc** (chưa chuyển sang ASCII); bấm **ASCII** để xem bản ký tự.
-- **Bảng màu**: Tường vân, Kim nâu, Đỏ son, Lagoon.
+- **Bảng màu**: Kim nâu (mặc định), Tường vân, Đỏ son, Lagoon.
 
-Bảng Mode 2 ở đầu cột phải chỉnh tốc độ, số cụm, số dải mỗi cụm, số đường viền, số vòng xoắn, độ uốn và tạo mây mới. Toàn bộ code nằm trong `js/mode2.js`; xoá dòng `<script src="js/mode2.js">` trong `index.html` là mode này ẩn hoàn toàn.
+Bảng Mode 2 ở đầu cột phải chỉnh tốc độ, số khúc uốn, độ rộng dải, độ lượn, số hàng mây dưới, số đường viền trong, số vòng xoắn và tạo mây mới. Toàn bộ code nằm trong `js/mode2.js`; xoá dòng `<script src="js/mode2.js">` trong `index.html` là mode này ẩn hoàn toàn.
 
 ## Ghi chú
 
