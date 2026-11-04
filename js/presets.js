@@ -86,6 +86,7 @@ GL.DEFAULTS = {
   color: 'mono', bg: '#0A0A0A', inks: ['#FFFFFF', '#BBBBBB', '#888888', '#FFFFFF', '#FFFFFF', '#FFFFFF', '#FFFFFF', '#FFFFFF'], inkN: 1, sat: 1.2,
   imgOpacity: 0, imgBlend: 'source-over', blend: 'source-over', inkOpacity: 1, imgGray: true,
   patch: false, block: 6, reveal: 0, alt: 0.3, flip: 0, altSet: 'dots', seed: 7,
+  bgOff: false, cellBg: false, cellBgColor: '#FFFFFF',
   flicker: 0, grain: 0, zones: [], zoneN: 5, zoneTol: 1, label: '', labelPos: 'c', frame: 'source', size: '1080',
 };
 
@@ -139,6 +140,11 @@ GL.PRESETS = {
     ramp: GL.CHARSETS.shapes.ramp, cell: 18, color: 'mono', bg: '#EDEDE8',
     inks: ['#1E5A47', '#1E5A47', '#1E5A47', '#1E5A47'], contrast: 1.5, cut: 0.1, grain: 0.08,
     label: '2025', labelPos: 'vl' },
+  // turquoise 3.42 · blue 4.45 · cobalt 8.88 · navy 13.00 — on a light ground with invert,
+  // so the list runs light → dark: sparse glyphs turquoise, dense ones navy
+  lagoon: { name: { vi: 'Lagoon', en: 'Lagoon' },
+    ramp: GL.CHARSETS.classic.ramp, cell: 10, bold: true, color: 'palette', bg: '#F4FAFB',
+    inks: ['#1A93AE', '#2F6FE0', '#1A20D8', '#0B1690'], inkN: 4, invert: true, contrast: 1.3, cut: 0.06 },
 };
 
 GL.DEFAULT_PRESET = 'loong';

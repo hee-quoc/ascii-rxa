@@ -173,6 +173,7 @@ function render(time) {
     kinds[by * bcols + bx] = r < state.reveal ? 2 : r < state.reveal + state.alt ? 1 : r < state.reveal + state.alt + state.flip ? 3 : 0;
   }
   mctx.clearRect(0, 0, W, H);
+  const cellsOn = state.cellBg ? [] : null;   // cells that got a glyph, for the per-cell background
   const { bright, contrast, gamma, cut, invert, sat, flicker } = state;
   for (let y = 0; y < rows; y++) for (let x = 0; x < cols; x++) {
     const i = (y * cols + x) * 4;
@@ -202,6 +203,7 @@ function render(time) {
       if (at.empty[lev]) continue;
     }
     mctx.drawImage(at.c, lev * s, 0, s, s, x * s, y * s, s, s);
+    if (cellsOn) cellsOn.push(x, y);
     let cr, cg, cb;
     switch (zk >= 0 ? 'zone' : state.color) {
       case 'zone': [cr, cg, cb] = zInk[zk]; break;
@@ -227,7 +229,12 @@ function render(time) {
   ictx.globalCompositeOperation = 'source-over';
 
   octx.globalCompositeOperation = 'source-over'; octx.globalAlpha = 1;
-  octx.fillStyle = state.bg; octx.fillRect(0, 0, W, H);
+  if (state.bgOff) octx.clearRect(0, 0, W, H); else { octx.fillStyle = state.bg; octx.fillRect(0, 0, W, H); }
+  if (cellsOn) {
+    octx.fillStyle = state.cellBgColor; octx.beginPath();
+    for (let k = 0; k < cellsOn.length; k += 2) octx.rect(cellsOn[k] * s, cellsOn[k + 1] * s, s, s);
+    octx.fill();
+  }
   if (state.imgOpacity > 0) { octx.globalAlpha = state.imgOpacity; octx.globalCompositeOperation = state.imgBlend; octx.drawImage(imgC, 0, 0); }
   octx.globalAlpha = state.inkOpacity; octx.globalCompositeOperation = state.blend; octx.drawImage(inkC, 0, 0);
   octx.globalAlpha = 1; octx.globalCompositeOperation = 'source-over';
@@ -310,7 +317,7 @@ function buildDynamicLabels() {
   $('#altSet').innerHTML = Object.entries(CHARSETS).map(([k, c]) => `<option value="${k}">${t('set2')}: ${c.name}</option>`).join('');
   document.querySelectorAll('.preset span').forEach(sp => sp.textContent = PRESETS[sp.parentNode.dataset.p].name[GL.lang]);
   document.querySelectorAll('#inks input').forEach((c, i) => c.setAttribute('aria-label', `${t('inkLabel')} ${i + 1}`));
-  updatePlayLabel(); updateRecLabel(); updateMeta(); renderZones();
+  updatePlayLabel(); updateRecLabel(); updateMeta(); renderZones(); buildLib();
 }
 const inkBox = $('#inks');
 for (let i = 0; i < GL.MAX_INKS; i++) {
@@ -330,6 +337,7 @@ function syncUI() {
   const zoneMode = state.color === 'zones';
   $('#zonePanel').hidden = !zoneMode; $('#legend').hidden = zoneMode;
   document.querySelectorAll('.nozone').forEach(el => el.hidden = zoneMode); // zones set their own colors frame.classList.toggle('zoning', zoneMode);
+  $('#imgOn').checked = state.imgOpacity > 0;
   styleZones(); drawLegend();
 }
 
@@ -420,6 +428,48 @@ document.querySelectorAll('[data-k]').forEach(el => {
     changed();
   });
 });
+// the source layer is just shown or hidden; presets may still set their own opacity
+$('#imgOn').addEventListener('input', e => { state.imgOpacity = e.target.checked ? 1 : 0; changed(); });
+
+/* glyph library: click to append to the custom set; sets can be saved in this browser */
+const LIB = [
+  ['libAscii', ". , : ; ' \" ` ^ ~ - _ + = * # % @ & $ ! ? / \\ | ( ) [ ] { } < > 0 1 o O x X"],
+  ['libBlocks', '░ ▒ ▓ █ ▀ ▄ ▌ ▐ ▖ ▗ ▘ ▝ ▚ ▞'],
+  ['libShapes', '· • ● ○ ◦ ◉ ◎ ▪ ■ □ ▫ ◆ ◇ ▲ △ ▼ ▽ ◢ ◣ ◤ ◥ ✕'],
+  ['libLines', '─ ━ │ ┃ ┼ ╋ ╱ ╲ ╳ ╸ ┌ ┐ └ ┘ ═ ║'],
+  ['libArrows', '← → ↑ ↓ ↖ ↗ ↘ ↙'],
+  ['libStars', '✦ ✧ ★ ☆ ✶ ✷ ✸ ✹ ✺ ✻ ✼ ❋ ❉ ✿ ❀ ☁ ♥ ♦ ♣ ♠'],
+  ['libMath', '± × ÷ ≈ ≠ ∞ ∑ ∆ ∴ ∵ √ ∙'],
+  ['libBraille', '⠁ ⠃ ⠇ ⡇ ⣇ ⣧ ⣷ ⣿'],
+];
+const LIB_KEY = 'glyphloom.sets';
+const loadSets = () => { try { const v = JSON.parse(localStorage.getItem(LIB_KEY)); return Array.isArray(v) ? v : []; } catch (e) { return []; } };
+const storeSets = v => { try { localStorage.setItem(LIB_KEY, JSON.stringify(v)); } catch (e) {} };
+function setRamp(v) { state.ramp = v || ' '; changed(); }
+function appendGlyph(g) { setRamp(state.ramp.includes(';') ? state.ramp + ';' + g : state.ramp + g); }
+function dropGlyph() {
+  const r = state.ramp;
+  setRamp(r.includes(';') ? r.slice(0, Math.max(0, r.lastIndexOf(';'))) : [...r].slice(0, -1).join(''));
+}
+function buildLib() {
+  const body = $('#libBody'), sets = loadSets();
+  body.innerHTML = `<p class="note">${t('libHint')}</p>` +
+    LIB.map(([k, g]) => `<div class="lib-group"><span>${t(k)}</span><div class="glyphs">${g.split(' ').map(c => `<button type="button" data-g="${esc(c)}">${esc(c)}</button>`).join('')}</div></div>`).join('') +
+    `<div class="lib-actions"><button type="button" data-a="back">${t('libBack')}</button><button type="button" data-a="clear">${t('libClear')}</button><button type="button" data-a="save">${t('libSave')}</button></div>` +
+    (sets.length ? `<div class="lib-group"><span>${t('libSaved')}</span><div class="lib-sets">${sets.map((r, i) =>
+      `<span class="lib-set"><button type="button" data-s="${i}">${esc(r)}</button><button type="button" data-del="${i}" title="${t('libDel')}" aria-label="${t('libDel')}">×</button></span>`).join('')}</div></div>` : '');
+}
+$('#libBody').addEventListener('click', e => {
+  const b = e.target.closest('button'); if (!b) return;
+  if (b.dataset.g) appendGlyph(b.dataset.g);
+  else if (b.dataset.a === 'back') dropGlyph();
+  else if (b.dataset.a === 'clear') setRamp(' ');
+  else if (b.dataset.a === 'save') {
+    const sets = loadSets().filter(r => r !== state.ramp); sets.unshift(state.ramp); storeSets(sets.slice(0, 24)); buildLib(); toast(t('tLibSaved'));
+  } else if (b.dataset.s) setRamp(loadSets()[+b.dataset.s]);
+  else if (b.dataset.del) { const sets = loadSets(); sets.splice(+b.dataset.del, 1); storeSets(sets); buildLib(); }
+});
+
 $('#seedBtn').addEventListener('click', () => { state.seed = (Math.random() * 1e6) | 0; dirty = true; });
 
 // preset tiles with a small glyph swatch
@@ -613,7 +663,8 @@ function buildSvg(fonts) {
     defs.push(`<clipPath id="reveal">${rects.join('')}</clipPath>`);
   }
   if (defs.length) o.push(`<defs>${defs.join('')}</defs>`);
-  o.push(`<rect width="100%" height="100%" fill="${state.bg}"/>`);
+  if (!state.bgOff) o.push(`<rect width="100%" height="100%" fill="${state.bg}"/>`);
+  if (state.cellBg && cells.length) o.push(`<path id="cell-bg" fill="${state.cellBgColor}" d="${cells.map(([x, y]) => `M${x * s} ${y * s}h${s}v${s}h-${s}z`).join('')}"/>`);
   if (state.imgOpacity > 0) o.push(`<use xlink:href="#src" opacity="${state.imgOpacity}" style="mix-blend-mode:${cssBlend(state.imgBlend)}"/>`);
   o.push(`<g id="ascii" opacity="${state.inkOpacity}" style="mix-blend-mode:${cssBlend(state.blend)}" font-family="${FONT}" font-size="${fs}" font-weight="${weight}" text-anchor="middle">`);
   for (const [col, els] of groups) o.push(`<g fill="${col}">${els.join('')}</g>`);

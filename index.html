@@ -52,6 +52,7 @@
       <div class="seg" data-seg="ramp"></div>
       <div class="row2"><label for="ramp" data-i18n="custom"></label><input id="ramp" data-k="ramp" type="text" spellcheck="false" placeholder="a;b;c;d"></div>
       <p class="note" data-i18n="rampHint"></p>
+      <details class="lib" id="glyphLib"><summary data-i18n="libTitle"></summary><div id="libBody"></div></details>
       <div class="legend" id="legend" aria-live="polite"></div>
       <div class="row"><label for="cell" data-i18n="cell"></label><input id="cell" data-k="cell" type="range" min="5" max="40" step="1"><output data-o="cell"></output></div>
       <div class="row"><label for="fscale" data-i18n="fscale"></label><input id="fscale" data-k="fscale" type="range" min="0.5" max="1.5" step="0.05"><output data-o="fscale"></output></div>
@@ -77,7 +78,8 @@
         <div class="zone-list" id="zoneList"></div>
         <button type="button" id="zoneDetect" data-i18n="zoneRedetect"></button>
       </div>
-      <div class="row2"><label for="bg" data-i18n="bg"></label><div class="inks"><input id="bg" data-k="bg" type="color"></div></div>
+      <div class="row2"><label for="bg" data-i18n="bg"></label><div class="inks"><input id="bg" data-k="bg" type="color"><label class="check"><input id="bgOff" data-k="bgOff" type="checkbox"> <span data-i18n="bgOff"></span></label></div></div>
+      <div class="row2"><label for="cellBgColor" data-i18n="cellBg"></label><div class="inks"><input id="cellBgColor" data-k="cellBgColor" type="color"><label class="check"><input id="cellBg" data-k="cellBg" type="checkbox"> <span data-i18n="on"></span></label></div></div>
       <div class="nozone row2"><label data-i18n="inks"></label><div class="inks" id="inks"></div></div>
       <div class="nozone row"><label for="inkN" data-i18n="inkN"></label><input id="inkN" data-k="inkN" type="range" min="1" max="8" step="1"><output data-o="inkN"></output></div>
       <div class="nozone row"><label for="sat" data-i18n="sat"></label><input id="sat" data-k="sat" type="range" min="0" max="2.5" step="0.05"><output data-o="sat"></output></div>
@@ -86,7 +88,7 @@
 
     <section>
       <h2 data-i18n="sLayer"></h2>
-      <div class="row"><label for="imgOpacity" data-i18n="imgOpacity"></label><input id="imgOpacity" data-k="imgOpacity" type="range" min="0" max="1" step="0.01"><output data-o="imgOpacity"></output></div>
+      <label class="check"><input id="imgOn" type="checkbox"> <span data-i18n="imgOn"></span></label>
       <div class="two">
         <select id="imgBlend" data-k="imgBlend" aria-label="Image blend">
           <option value="source-over" data-i18n="imgNormal"></option><option value="multiply" data-i18n="imgMultiply"></option><option value="screen" data-i18n="imgScreen"></option><option value="luminosity" data-i18n="imgLuminosity"></option><option value="overlay" data-i18n="imgOverlay"></option>
@@ -95,7 +97,6 @@
           <option value="source-over">ascii: normal</option><option value="multiply">ascii: multiply</option><option value="screen">ascii: screen</option><option value="overlay">ascii: overlay</option><option value="difference">ascii: difference</option><option value="lighter">ascii: add</option>
         </select>
       </div>
-      <div class="row"><label for="inkOpacity">ASCII</label><input id="inkOpacity" data-k="inkOpacity" type="range" min="0" max="1" step="0.01"><output data-o="inkOpacity"></output></div>
       <label class="check"><input id="imgGray" data-k="imgGray" type="checkbox"> <span data-i18n="imgGray"></span></label>
     </section>
 
