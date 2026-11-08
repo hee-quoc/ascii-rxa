@@ -144,19 +144,20 @@ function writeSvgStore() {
   const o = {}; for (const [k, v] of svgGlyphs.map) if (v.markup.length <= SVG_MAX) o[k] = v.markup;
   try { localStorage.setItem(SVG_KEY, JSON.stringify(o)); return true; } catch (e) { return false; }
 }
-async function addSvgGlyph(file) {
+async function addSvgGlyph(file, onAdd = appendGlyph) {
   let markup;
   try { markup = cleanSvg(await file.text()); } catch (e) { toast(t('tSvgBad')); return; }
   const tok = svgName(file.name, svgGlyphs.map);
   try { await loadSvgGlyph(tok, markup); } catch (e) { toast(t('tSvgBad')); return; }
   if (markup.length > SVG_MAX || !writeSvgStore()) toast(t('tSvgBig'));
-  appendGlyph(tok); buildLib(); toast(`${t('tSvgAdded')} ${tok}`);
+  onAdd(tok); buildLib(); renderZones(); toast(`${t('tSvgAdded')} ${tok}`);
 }
 function removeSvgGlyph(tok) {
   svgGlyphs.map.delete(tok); svgGlyphs.version++; writeSvgStore();
   const toks = GL.parseRamp(state.ramp);
   if (toks.includes(tok)) setRamp(toks.filter(x => x !== tok).join(';'));
-  for (const k in atlasCache) delete atlasCache[k]; dirty = true; buildLib();
+  for (const z of state.zones) { const zt = GL.parseRamp(z.ramp); if (zt.includes(tok)) z.ramp = zt.filter(x => x !== tok).join(';') || ' '; }
+  for (const k in atlasCache) delete atlasCache[k]; dirty = true; buildLib(); renderZones();
 }
 // fits the shape inside the cell, scaled with the glyph size
 function drawSvgGlyph(x, tok, l, t, s) {
@@ -164,7 +165,7 @@ function drawSvgGlyph(x, tok, l, t, s) {
   const b = s * Math.min(1, 0.92 * state.fscale), w = g.ar >= 1 ? b : b * g.ar, h = g.ar >= 1 ? b / g.ar : b;
   x.drawImage(g.img, l + (s - w) / 2, t + (s - h) / 2, w, h);
 }
-Promise.all(Object.entries(readSvgStore()).map(([k, m]) => loadSvgGlyph(k, m).catch(() => {}))).then(() => { if (typeof buildLib === 'function') buildLib(); });
+Promise.all(Object.entries(readSvgStore()).map(([k, m]) => loadSvgGlyph(k, m).catch(() => {}))).then(() => { buildLib(); renderZones(); });
 
 /* ---------- glyph atlas ---------- */
 const atlasCache = {};
@@ -467,7 +468,9 @@ function renderZones() {
       + `<select class="zset" aria-label="${t('zoneSet')} ${k + 1}">${zoneSetOptions()}</select>`
       + `<label class="check" title="${t('zoneShow')}"><input type="checkbox" class="zon" aria-label="${t('zoneShow')} ${k + 1}"></label>`
       + `<button type="button" class="zdel" aria-label="${t('zoneDel')} ${k + 1}">×</button>`
-      + `<input type="text" class="zramp" spellcheck="false" placeholder="a;b;c" aria-label="${t('zoneSet')} ${k + 1}">`;
+      + `<input type="text" class="zramp" spellcheck="false" placeholder="a;b;c" aria-label="${t('zoneSet')} ${k + 1}">`
+      + `<div class="zsvg"><span>SVG</span>${[...svgGlyphs.map].map(([tok, g]) => `<button type="button" data-zg="${esc(tok)}" title="${t('zoneSvgAdd')} · ${esc(tok)}"><span class="svgtok" style="background:currentColor;${esc(`-webkit-mask-image:url("${g.url}");mask-image:url("${g.url}")`)}"></span></button>`).join('')}`
+      + `<label class="btn" title="${t('libSvgAdd')}">+<input type="file" accept=".svg,image/svg+xml" multiple class="zsvgadd"></label></div>`;
     const q = s => row.querySelector(s);
     q('.zink').value = z.ink; q('.zset').value = setKeyOf(z.ramp); q('.zon').checked = z.on; q('.zramp').value = z.ramp;
     q('.zsrc').addEventListener('click', () => { pickTarget = pickTarget === k ? null : k; styleZones(); if (pickTarget !== null) toast(t('tZonePick')); });
@@ -476,6 +479,9 @@ function renderZones() {
     q('.zset').addEventListener('change', e => { if (e.target.value) { z.ramp = CHARSETS[e.target.value].ramp; q('.zramp').value = z.ramp; } zoneEdited(); });
     q('.zramp').addEventListener('input', e => { z.ramp = e.target.value || ' '; q('.zset').value = setKeyOf(z.ramp); zoneEdited(); });
     q('.zdel').addEventListener('click', () => { state.zones.splice(k, 1); pickTarget = null; renderZones(); zoneEdited(); });
+    const addTok = tok => { z.ramp = withGlyph(z.ramp, tok); q('.zramp').value = z.ramp; q('.zset').value = setKeyOf(z.ramp); zoneEdited(); };
+    row.querySelectorAll('[data-zg]').forEach(b => b.addEventListener('click', () => addTok(b.dataset.zg)));
+    q('.zsvgadd').addEventListener('change', async e => { for (const f of [...e.target.files]) await addSvgGlyph(f, addTok); });
     box.appendChild(row);
   });
   styleZones();
@@ -560,12 +566,12 @@ const loadSets = () => { try { const v = JSON.parse(localStorage.getItem(LIB_KEY
 const storeSets = v => { try { localStorage.setItem(LIB_KEY, JSON.stringify(v)); } catch (e) {} };
 function setRamp(v) { state.ramp = v || ' '; changed(); }
 // a token longer than one character needs the ;-separated form, so the set switches to it
-function appendGlyph(g) {
-  const r = state.ramp;
-  if (r.includes(';')) setRamp(r + ';' + g);
-  else if ([...g].length > 1) setRamp([...[...r].map(c => c.trim()), g].join(';'));
-  else setRamp(r + g);
+function withGlyph(r, g) {
+  if (r.includes(';')) return r + ';' + g;
+  if ([...g].length > 1) return [...[...r].map(c => c.trim()), g].join(';');
+  return r + g;
 }
+function appendGlyph(g) { setRamp(withGlyph(state.ramp, g)); }
 function dropGlyph() {
   const r = state.ramp;
   setRamp(r.includes(';') ? r.slice(0, Math.max(0, r.lastIndexOf(';'))) : [...r].slice(0, -1).join(''));

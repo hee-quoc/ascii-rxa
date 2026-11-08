@@ -100,6 +100,10 @@ input[type=color]{width:30px;height:26px;padding:0;border:1px solid var(--line);
 .zone select{padding:5px 4px}
 .zone .zdel{padding:0;height:26px;font:500 14px/1 var(--f-mono)}
 .zone .zramp{grid-column:1/-1;font-weight:700}
+.zone .zsvg{grid-column:1/-1;display:flex;flex-wrap:wrap;gap:4px;align-items:center}
+.zone .zsvg>span{font:600 10px/1 var(--f-mono);letter-spacing:.1em;color:var(--muted);margin-right:2px}
+.zone .zsvg button,.zone .zsvg .btn{width:28px;height:24px;padding:3px;display:inline-flex;align-items:center;justify-content:center}
+.zone .zsvg .svgtok{width:100%;height:100%}
 .frame.zoning #out{cursor:copy}
 .frame.picking #out{cursor:crosshair}
 .two{display:grid;grid-template-columns:1fr 1fr;gap:8px}
