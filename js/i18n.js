@@ -4,8 +4,7 @@ window.GL = window.GL || {};
 
 GL.STRINGS = {
   vi: {
-    hint: 'Kéo thả ảnh / SVG / MP4 vào đây · hoặc dán (Ctrl+V)',
-    upload: 'Tải file lên', demo: 'Rồng demo', demoCloud: 'Mây demo', tNoCloud: 'Chưa có ảnh mây demo (assets/cloud.jpg)',
+    demo: 'Rồng demo', demoCloud: 'Mây demo', tNoCloud: 'Chưa có ảnh mây demo (assets/cloud.jpg)',
     pause: 'Tạm dừng video', play: 'Phát video',
     png: 'Xuất PNG', svg: 'Xuất SVG', svgTip: 'File vector giống hệt PNG: mỗi ký tự là nét vector, mở ở app nào cũng như nhau', svgText: 'SVG giữ chữ', svgTextTip: 'Bật: ký tự là chữ sửa được (cần cài font Geist Mono, có thể lệch trong Figma). Tắt: ký tự thành nét, giống hệt PNG', tSvgFonts: 'Không tải được font, SVG xuất dạng chữ', rec: '● Quay video', recStop: '■ Dừng & lưu',
     sPresets: 'Biến thể', sCharset: 'Bộ ký tự', sTone: 'Tone', sColor: 'Màu',
@@ -23,6 +22,8 @@ GL.STRINGS = {
     imgOn: 'Hiện ảnh gốc bên dưới', imgGray: 'Ảnh đen trắng',
     bgOff: 'Tắt nền', cellBg: 'Nền từng ô',
     libTitle: 'Thư viện ký tự', libHint: 'Bấm một ký tự để thêm vào ô Tự nhập.', libClear: 'Xoá hết', libBack: 'Xoá ký tự cuối', libSave: 'Lưu bộ này', libSaved: 'Bộ đã lưu', libDel: 'Xoá bộ này', tLibSaved: 'Đã lưu bộ ký tự',
+    libSvg: 'Ký tự SVG', libSvgHint: 'Tải một file SVG bất kỳ (hình con vật, logo, icon…) để dùng làm ký tự. Hình được cắt sát nét vẽ và tô theo màu ký tự.', libSvgAdd: 'Thêm file SVG làm ký tự',
+    tSvgBad: 'File này không đọc được như SVG', tSvgBig: 'SVG lớn quá nên chỉ dùng được trong phiên này, không lưu lại trên trình duyệt', tSvgAdded: 'Đã thêm ký tự',
     libAscii: 'ASCII', libBlocks: 'Khối', libShapes: 'Hình', libLines: 'Đường', libArrows: 'Mũi tên', libStars: 'Sao & hoa', libMath: 'Toán', libBraille: 'Braille',
     imgNormal: 'ảnh: normal', imgMultiply: 'ảnh: multiply', imgScreen: 'ảnh: screen', imgLuminosity: 'ảnh: luminosity', imgOverlay: 'ảnh: overlay',
     on: 'bật', alt: 'Bộ chữ 2', flip: 'Đảo block', reveal: 'Lộ ảnh', shuffle: 'Xáo block', set2: 'bộ 2',
@@ -36,8 +37,7 @@ GL.STRINGS = {
     inkLabel: 'Màu chữ',
   },
   en: {
-    hint: 'Drop an image / SVG / MP4 here · or paste (Ctrl+V)',
-    upload: 'Upload file', demo: 'Dragon demo', demoCloud: 'Cloud demo', tNoCloud: 'Cloud demo image is missing (assets/cloud.jpg)',
+    demo: 'Dragon demo', demoCloud: 'Cloud demo', tNoCloud: 'Cloud demo image is missing (assets/cloud.jpg)',
     pause: 'Pause video', play: 'Play video',
     png: 'Export PNG', svg: 'Export SVG', svgTip: 'Vector file that matches the PNG: every glyph is outlined, so it looks the same in any app', svgText: 'SVG as text', svgTextTip: 'On: glyphs stay editable text (needs Geist Mono installed, may shift in Figma). Off: glyphs are outlines that match the PNG', tSvgFonts: 'Couldn’t load the font, SVG exported as text', rec: '● Record', recStop: '■ Stop & save',
     sPresets: 'Presets', sCharset: 'Character set', sTone: 'Tone', sColor: 'Color',
@@ -55,6 +55,8 @@ GL.STRINGS = {
     imgOn: 'Show the source image underneath', imgGray: 'Grayscale image',
     bgOff: 'No background', cellBg: 'Cell background',
     libTitle: 'Glyph library', libHint: 'Click a glyph to add it to the Custom field.', libClear: 'Clear', libBack: 'Remove last', libSave: 'Save this set', libSaved: 'Saved sets', libDel: 'Delete this set', tLibSaved: 'Glyph set saved',
+    libSvg: 'SVG glyphs', libSvgHint: 'Upload any SVG (an animal, a logo, an icon…) to use it as a glyph. It is cropped to its drawing and takes the glyph color.', libSvgAdd: 'Add an SVG file as a glyph',
+    tSvgBad: 'This file could not be read as an SVG', tSvgBig: 'This SVG is too large to keep in the browser, so it only lasts for this session', tSvgAdded: 'Added glyph',
     libAscii: 'ASCII', libBlocks: 'Blocks', libShapes: 'Shapes', libLines: 'Lines', libArrows: 'Arrows', libStars: 'Stars & flowers', libMath: 'Math', libBraille: 'Braille',
     imgNormal: 'image: normal', imgMultiply: 'image: multiply', imgScreen: 'image: screen', imgLuminosity: 'image: luminosity', imgOverlay: 'image: overlay',
     on: 'on', alt: 'Set 2', flip: 'Flip blocks', reveal: 'Reveal image', shuffle: 'Shuffle', set2: 'set 2',

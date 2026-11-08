@@ -1,6 +1,6 @@
 # Glyph Loom
 
-Hệ thống ASCII generative chạy hoàn toàn trên trình duyệt. Upload ảnh, SVG hoặc video (MP4/WebM) và chuyển thành lưới ký tự, có lớp ảnh gốc lồng bên dưới, patchwork, flicker và xuất PNG / SVG / video.
+Hệ thống ASCII generative chạy hoàn toàn trên trình duyệt. Biến các ảnh demo có sẵn (người dùng không tự tải file lên) thành lưới ký tự, có lớp ảnh gốc lồng bên dưới, patchwork, flicker và xuất PNG / SVG / video.
 *A browser-only ASCII generative system: turn images, SVG and video into character grids, layered over the source, with patchwork, flicker and PNG / SVG / video export. UI in Vietnamese and English.*
 
 ## Chạy local
@@ -59,6 +59,8 @@ js/app.js         engine render + xử lý UI
 - Nếu danh sách không có mục trống nào, app tự thêm một mục trống ở đầu để nền vẫn sạch. Muốn chừa trống chỗ khác thì để `;;`.
 - Bảng màu có tối đa 8 màu (kéo **Số màu**). Ở chế độ **Palette**, màu được chia theo thứ tự các mục: 8 mục với 8 màu thì mục thứ *i* luôn mang màu thứ *i*; nhiều mục hơn số màu thì các mục liền nhau dùng chung một màu. Ô xem trước dưới ô nhập cho thấy mục nào mang màu nào.
 
+**Ký tự SVG**: trong thư viện ký tự, nút **+ SVG** nhận một hay nhiều file SVG bất kỳ (hình con vật, logo, icon…) và biến mỗi file thành một ký tự, tên dạng `svg:ten-file`. File được làm sạch (bỏ script, sự kiện, link ra ngoài), khung hình được cắt sát nét vẽ để hình lấp đầy ô, rồi vẽ thành bóng đặc theo màu ký tự (mono, palette, màu ảnh…). Ký tự SVG được lưu trên trình duyệt (file tới 400 KB), dùng được trong bộ ký tự chính lẫn bộ riêng của từng vùng (gõ `;svg:ten-file`), và khi xuất SVG được dò thành nét vector. Bấm × để xoá.
+
 **Thư viện ký tự** (mở ngay dưới ô Tự nhập) gom sẵn ký tự theo nhóm: ASCII, khối, hình, đường, mũi tên, sao & hoa, toán, braille. Bấm một ký tự là nó được thêm vào cuối ô Tự nhập; có nút xoá ký tự cuối, xoá hết và **Lưu bộ này** để giữ bộ ký tự trên trình duyệt (tối đa 24 bộ, bấm để dùng lại, × để xoá).
 
 ## Nền
@@ -67,7 +69,7 @@ js/app.js         engine render + xử lý UI
 
 ## Vùng màu
 
-Chế độ màu **Vùng** chia ảnh theo màu thay vì theo độ sáng. Khi tải ảnh hoặc video lên, app tự tìm các dải màu chính (2–8 vùng; với video thì lấy từ khung hình đầu tiên). Mỗi vùng có:
+Chế độ màu **Vùng** chia ảnh theo màu thay vì theo độ sáng. Khi mở một ảnh demo, app tự tìm các dải màu chính (2–8 vùng; với video thì lấy từ khung hình đầu tiên). Mỗi vùng có:
 
 - **Màu gốc**: màu app tìm thấy. Bấm vào ô này rồi bấm lên ảnh để chọn lại.
 - **Màu xuất**: màu ký tự của vùng đó.
@@ -84,23 +86,14 @@ Bộ ký tự **Bars** và **Shapes** không vẽ bằng font mà vẽ bằng h�
 
 ## Mode 2 (thử nghiệm)
 
-Nút **Mode 2** sinh mây tường vân có chuyển động, khung dọc. Cảnh gồm một dải mây lớn uốn lượn từ trên xuống rồi đổ vào lớp mây phía dưới.
-
-- **Dải mây**: đi theo đường uốn khúc (chạy gần ngang qua khung, quay đầu tròn ở hai bên), phình to ở mỗi khúc quay và có các bướu mây nhô ra phía ngoài khúc quay. Một số khúc quay có cụm mây gắn liền. Dải, bướu và cụm trên dải là một khối liền (nối mềm bằng smooth union), nên không bao giờ tách rời.
-- **Lớp mây dưới**: hai hàng cụm mây; mỗi cụm có viền riêng, dải mây chen giữa hàng sau và hàng trước.
-- **Tô màu theo độ sâu từ mép vào**: viền ánh kim, nét sáng, màu thân, rồi các đường viền trong chạy song song theo mép. Bướu lớn có xoắn chữ C (dải sáng, lõi màu), các xoắn cạnh nhau xoay ngược chiều.
-- **Chuyển động**: dải mây lượn, xoắn quay, lớp mây dưới bồng bềnh.
-- **Hiển thị**: mặc định là **Mây gốc** (chưa chuyển sang ASCII); bấm **ASCII** để xem bản ký tự.
-- **Bảng màu**: Kim nâu (mặc định), Tường vân, Đỏ son, Lagoon.
-
-Bảng Mode 2 ở đầu cột phải chỉnh tốc độ, số khúc uốn, độ rộng dải, độ lượn, số hàng mây dưới, số đường viền trong, số vòng xoắn và tạo mây mới. Toàn bộ code nằm trong `js/mode2.js`; xoá dòng `<script src="js/mode2.js">` trong `index.html` là mode này ẩn hoàn toàn.
+Nút **Mode 2** mở ảnh mây demo (`assets/cloud.jpg`) kèm bảng **Kiểu ASCII** ở đầu cột phải: 8 kiểu dựng sẵn cho đám mây (Vùng màu, Lagoon, Mực tàu, Khối màu, Chấm in, Kim tuyến, Ô nền, Đêm). Bấm một kiểu, hoặc dùng **← Trước / Sau →** để đổi lần lượt; bật **Tự đổi kiểu** để các kiểu tự chạy nối nhau (chỉnh số giây mỗi kiểu). Mỗi kiểu thay toàn bộ phong cách như một preset, còn tỉ lệ khung, cỡ xuất và các vùng màu đã tìm được giữ nguyên. Toàn bộ code nằm trong `js/mode2.js`; xoá dòng `<script src="js/mode2.js">` trong `index.html` là mode này ẩn hoàn toàn.
 
 ## Ghi chú
 
 - PNG có nền trong suốt: vùng trong suốt sẽ để trống, chỉ vẽ phần có hình.
 - **Xuất SVG** mặc định chuyển mọi ký tự thành nét vector (như "Create Outlines"), nên mở trong Figma / Illustrator / trình duyệt đều giống bản PNG. Nét lấy từ font Geist Mono đóng gói trong `assets/fonts` (giấy phép OFL, xem `assets/fonts/OFL.txt`); ký tự font không có thì được dò nét từ chính canvas. Mỗi ký tự là một symbol dùng lại, gom nhóm theo màu nên vẫn đổi màu cả nhóm dễ dàng. Riêng `░▒▓` được giữ đúng từng điểm ảnh như trên canvas (font vẽ các ký tự này thành chấm tròn to khi phóng lớn, chỉ ở cỡ ô mới thành hoa văn). Tick **SVG giữ chữ** nếu cần ký tự là chữ sửa được (máy cần cài Geist Mono). Lớp ảnh gốc (nếu bật) được nhúng dạng PNG; hạt nhiễu thành filter SVG và chế độ blend có thể bị Figma bỏ qua, nên hai phần này trông hơi khác.
 - Quay video dùng `MediaRecorder`: Chrome/Edge xuất WebM (hoặc MP4 nếu trình duyệt hỗ trợ), Safari xuất MP4.
-- Mọi xử lý đều nằm trên máy người dùng, không upload file đi đâu cả.
+- Mọi xử lý đều nằm trên máy người dùng, không gửi file đi đâu cả. Người dùng không mở được file riêng: app chỉ chạy các demo đóng gói sẵn trong `assets/` (thêm demo mới bằng `loadDemo(url, look)` trong `js/app.js`).
 
 ## Tác giả / Author
 

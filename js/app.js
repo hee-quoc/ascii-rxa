@@ -24,7 +24,7 @@ let state = withInks(clone({ ...DEFAULTS, ...PRESETS[GL.DEFAULT_PRESET] }));
 let activePreset = GL.DEFAULT_PRESET;
 
 /* ---------- sources ---------- */
-let source = null;               // { kind: 'sample' | 'image' | 'video' | 'mode2', el, name }
+let source = null;               // { kind: 'sample' | 'image' | 'video', el, name, tag }
 const dragonCanvas = document.createElement('canvas');
 dragonCanvas.width = 1000; dragonCanvas.height = 1000;
 
@@ -45,7 +45,7 @@ function clearVideo() {
   if (source && source.kind === 'video') { source.el.pause(); source.el.removeAttribute('src'); source.el.load(); }
   if (objUrl) { URL.revokeObjectURL(objUrl); objUrl = null; }
 }
-function loadFile(f) {
+function loadFile(f, tag) {
   if (!f) return;
   const isVideo = f.type.startsWith('video/');
   const isSvg = /svg/.test(f.type) || /\.svg$/i.test(f.name);
@@ -58,7 +58,7 @@ function loadFile(f) {
     const v = document.createElement('video');
     v.muted = true; v.loop = true; v.playsInline = true; v.src = objUrl;
     v.addEventListener('loadeddata', () => {
-      source = { kind: 'video', el: v, name: base }; detectZones(); v.play().catch(() => {});
+      source = { kind: 'video', el: v, name: base, tag }; detectZones(); v.play().catch(() => {});
       $('#playBtn').hidden = false; updatePlayLabel(); dirty = true;
     }, { once: true });
     v.addEventListener('error', () => toast(t('tBadVideo')), { once: true });
@@ -72,12 +72,12 @@ function loadFile(f) {
         const c = document.createElement('canvas'); c.width = w; c.height = h;
         c.getContext('2d').drawImage(img, 0, 0, w, h); el = c;
       }
-      source = { kind: 'image', el, name: base }; detectZones(); $('#playBtn').hidden = true; dirty = true;
+      source = { kind: 'image', el, name: base, tag }; detectZones();
+      if (tag === 'mode2' && GL.mode2) GL.mode2.opened(); $('#playBtn').hidden = true; dirty = true;
     };
     img.onerror = () => toast(t('tBadImage'));
     img.src = objUrl;
   }
-  $('#hint').hidden = true;
 }
 function srcSize(s) {
   const e = s.el;
@@ -90,11 +90,87 @@ function drawCover(ctx, el, sw, sh, w, h) {
   ctx.drawImage(el, (w - dw) / 2, (h - dh) / 2, dw, dh);
 }
 
+/* ---------- SVG glyphs ----------
+ * Any SVG file can be a glyph. Its token in the set is "svg:<name>". The file is cleaned
+ * (no scripts, event handlers or remote links), its viewBox is cropped to the drawing so
+ * the shape fills the cell, and it is drawn as a silhouette that takes the glyph color.
+ * Files are kept in this browser so saved sets that use them keep working. */
+const SVG_KEY = 'glyphloom.svgGlyphs', SVG_MAX = 400000;
+const svgGlyphs = { map: new Map(), version: 0, has(tok) { return this.map.has(tok); } };
+function cleanSvg(text) {
+  const doc = new DOMParser().parseFromString(text, 'image/svg+xml'), svg = doc.documentElement;
+  if (!svg || svg.nodeName.toLowerCase() !== 'svg' || doc.getElementsByTagName('parsererror').length) throw new Error('not svg');
+  svg.querySelectorAll('script, foreignObject, iframe, object, embed').forEach(n => n.remove());
+  for (const el of [svg, ...svg.querySelectorAll('*')]) for (const a of [...el.attributes]) {
+    if (/^on/i.test(a.name) || (/href$/i.test(a.name) && !/^\s*(#|data:image\/)/i.test(a.value))) el.removeAttribute(a.name);
+  }
+  svg.setAttribute('xmlns', 'http://www.w3.org/2000/svg');
+  // crop to what is actually drawn; strokes stick out of the box, so pad it a little
+  const holder = document.createElement('div');
+  holder.style.cssText = 'position:absolute;left:-10000px;top:0;width:512px;height:512px;overflow:hidden;visibility:hidden';
+  const live = document.importNode(svg, true); live.setAttribute('width', '512'); live.setAttribute('height', '512');
+  holder.appendChild(live); document.body.appendChild(holder);
+  let bb = null; try { bb = live.getBBox(); } catch (e) {}
+  holder.remove();
+  if (!bb || !(bb.width > 0) || !(bb.height > 0)) {
+    const vb = (svg.getAttribute('viewBox') || '').split(/[\s,]+/).map(Number);
+    const w = parseFloat(svg.getAttribute('width')) || 100, h = parseFloat(svg.getAttribute('height')) || 100;
+    bb = vb.length === 4 && vb[2] > 0 && vb[3] > 0 ? { x: vb[0], y: vb[1], width: vb[2], height: vb[3] } : { x: 0, y: 0, width: w, height: h };
+  }
+  const pad = Math.max(bb.width, bb.height) * 0.04, vw = bb.width + pad * 2, vh = bb.height + pad * 2;
+  svg.setAttribute('viewBox', `${bb.x - pad} ${bb.y - pad} ${vw} ${vh}`);
+  svg.setAttribute('preserveAspectRatio', 'xMidYMid meet');
+  svg.setAttribute('width', vw >= vh ? 256 : Math.round(256 * vw / vh)); svg.setAttribute('height', vh >= vw ? 256 : Math.round(256 * vh / vw));
+  return new XMLSerializer().serializeToString(svg);
+}
+function svgName(file, taken) {
+  const base = (file.replace(/\.svg$/i, '').toLowerCase().normalize('NFD').replace(/[\u0300-\u036f]/g, '').replace(/[^a-z0-9]+/g, '-').replace(/^-|-$/g, '') || 'shape').slice(0, 24);
+  let n = base, i = 2; while (taken.has('svg:' + n)) n = `${base}-${i++}`;
+  return 'svg:' + n;
+}
+function loadSvgGlyph(tok, markup) {
+  return new Promise((ok, fail) => {
+    const img = new Image(), url = 'data:image/svg+xml;charset=utf-8,' + encodeURIComponent(markup);
+    img.onload = () => {
+      svgGlyphs.map.set(tok, { img, url, markup, ar: (img.naturalWidth || 1) / (img.naturalHeight || 1) });
+      svgGlyphs.version++; for (const k in atlasCache) delete atlasCache[k]; dirty = true; ok(tok);
+    };
+    img.onerror = () => fail(new Error('svg failed'));
+    img.src = url;
+  });
+}
+const readSvgStore = () => { try { const v = JSON.parse(localStorage.getItem(SVG_KEY)); return v && typeof v === 'object' ? v : {}; } catch (e) { return {}; } };
+function writeSvgStore() {
+  const o = {}; for (const [k, v] of svgGlyphs.map) if (v.markup.length <= SVG_MAX) o[k] = v.markup;
+  try { localStorage.setItem(SVG_KEY, JSON.stringify(o)); return true; } catch (e) { return false; }
+}
+async function addSvgGlyph(file) {
+  let markup;
+  try { markup = cleanSvg(await file.text()); } catch (e) { toast(t('tSvgBad')); return; }
+  const tok = svgName(file.name, svgGlyphs.map);
+  try { await loadSvgGlyph(tok, markup); } catch (e) { toast(t('tSvgBad')); return; }
+  if (markup.length > SVG_MAX || !writeSvgStore()) toast(t('tSvgBig'));
+  appendGlyph(tok); buildLib(); toast(`${t('tSvgAdded')} ${tok}`);
+}
+function removeSvgGlyph(tok) {
+  svgGlyphs.map.delete(tok); svgGlyphs.version++; writeSvgStore();
+  const toks = GL.parseRamp(state.ramp);
+  if (toks.includes(tok)) setRamp(toks.filter(x => x !== tok).join(';'));
+  for (const k in atlasCache) delete atlasCache[k]; dirty = true; buildLib();
+}
+// fits the shape inside the cell, scaled with the glyph size
+function drawSvgGlyph(x, tok, l, t, s) {
+  const g = svgGlyphs.map.get(tok); if (!g) return;
+  const b = s * Math.min(1, 0.92 * state.fscale), w = g.ar >= 1 ? b : b * g.ar, h = g.ar >= 1 ? b / g.ar : b;
+  x.drawImage(g.img, l + (s - w) / 2, t + (s - h) / 2, w, h);
+}
+Promise.all(Object.entries(readSvgStore()).map(([k, m]) => loadSvgGlyph(k, m).catch(() => {}))).then(() => { if (typeof buildLib === 'function') buildLib(); });
+
 /* ---------- glyph atlas ---------- */
 const atlasCache = {};
 function getAtlas(name, ramp) {
   const toks = GL.parseRamp(ramp), s = state.cell, L = Math.max(1, toks.length);
-  const key = [ramp, s, state.fscale, state.bold].join('|');
+  const key = [ramp, s, state.fscale, state.bold, svgGlyphs.version].join('|');
   if (atlasCache[name] && atlasCache[name].key === key) return atlasCache[name];
   const c = document.createElement('canvas'); c.width = s * L; c.height = s;
   const x = c.getContext('2d');
@@ -110,7 +186,8 @@ function getAtlas(name, ramp) {
     if (empty[i]) continue;
     gi[i] = G++; vis.push(i);
     x.save(); x.beginPath(); x.rect(i * s, 0, s, s); x.clip();
-    if (GL.SHAPES[tok]) GL.SHAPES[tok](x, i * s, 0, s, state.fscale);
+    if (svgGlyphs.has(tok)) drawSvgGlyph(x, tok, i * s, 0, s);
+    else if (GL.SHAPES[tok]) GL.SHAPES[tok](x, i * s, 0, s, state.fscale);
     else if ([...tok].length > 1) x.fillText(tok, i * s + s / 2, s / 2 + s * 0.05, s * 0.94); // words squeeze into the cell
     else x.fillText(tok, i * s + s / 2, s / 2 + s * 0.05);
     x.restore();
@@ -177,18 +254,11 @@ function maskRuns(m, cols, rows) {
 function render(time) {
   if (!source) return;
   if (source.kind === 'sample') GL.drawDragon(dragonCanvas, time);
-  if (source.kind === 'mode2') GL.mode2.draw(time);
   const [sw, sh] = srcSize(source); if (!sw || !sh) return;
   const ar = state.frame === 'source' ? sw / sh : +state.frame;
   const s = state.cell, outW = +state.size, outH = Math.round(outW / ar);
   const cols = Math.max(1, Math.floor(outW / s)), rows = Math.max(1, Math.floor(outH / s));
   const W = cols * s, H = rows * s;
-  if (source.kind === 'mode2' && GL.mode2.plain) { // mode 2's plain view: the clouds as drawn, no glyphs
-    setSize(out, W, H); octx.globalAlpha = 1; octx.globalCompositeOperation = 'source-over'; octx.imageSmoothingQuality = 'high';
-    drawCover(octx, source.el, sw, sh, W, H);
-    lastInfo = { cols, rows, W, H, s, brows: 0, bcols: 0, blk: 1, kinds: new Uint8Array(0), cellRuns: null, plain: true }; updateMeta();
-    return;
-  }
   [out, maskC, inkC, imgC].forEach(c => setSize(c, W, H));
   setSize(sampC, cols, rows); setSize(colC, cols, rows);
 
@@ -288,8 +358,8 @@ function render(time) {
 }
 function updateMeta() {
   if (!lastInfo || !source) return;
-  const kind = { sample: t('kindSample'), image: t('kindImage'), video: t('kindVideo'), mode2: 'Mode 2' }[source.kind];
-  if (GL.mode2?.panel) GL.mode2.panel.hidden = source.kind !== 'mode2';
+  const kind = source.tag === 'mode2' ? 'Mode 2' : { sample: t('kindSample'), image: t('kindImage'), video: t('kindVideo') }[source.kind];
+  if (GL.mode2?.panel) GL.mode2.panel.hidden = source.tag !== 'mode2';
   $('#meta').textContent = `${lastInfo.cols} × ${lastInfo.rows} ${t('chars')} · ${lastInfo.W} × ${lastInfo.H} px · ${kind}`;
 }
 // label geometry and colors, shared by the canvas and the SVG export
@@ -325,7 +395,7 @@ function drawLabel(W, H) {
 
 let recording = false;
 function loop(time) {
-  const animated = (source && (source.kind === 'sample' || (source.kind === 'mode2' && GL.mode2.moving) || (source.kind === 'video' && !source.el.paused))) || state.flicker > 0 || recording;
+  const animated = (source && (source.kind === 'sample' || (source.kind === 'video' && !source.el.paused))) || state.flicker > 0 || recording;
   if (dirty || animated) { dirty = false; render(time); }
   requestAnimationFrame(loop);
 }
@@ -454,7 +524,10 @@ function drawLegend() {
       case 'duotone': { const a = inks[0], z = inks[Math.min(1, n - 1)], f = G > 1 ? j / (G - 1) : 1; col = `rgb(${a.map((c, k) => Math.round(c + (z[k] - c) * f))})`; break; }
       default: col = contrastInk;
     }
-    const sp = document.createElement('span'); sp.textContent = tok; sp.style.color = col; box.appendChild(sp);
+    const sp = document.createElement('span'), g = svgGlyphs.map.get(tok);
+    if (g) { sp.className = 'svgtok'; sp.title = tok; sp.style.backgroundColor = col; sp.style.webkitMaskImage = sp.style.maskImage = `url("${g.url}")`; }
+    else { sp.textContent = tok; sp.style.color = col; }
+    box.appendChild(sp);
   });
   if (G > MAX) { const sp = document.createElement('span'); sp.className = 'more'; sp.style.color = contrastInk; sp.textContent = `+${G - MAX}`; box.appendChild(sp); }
 }
@@ -486,7 +559,13 @@ const LIB_KEY = 'glyphloom.sets';
 const loadSets = () => { try { const v = JSON.parse(localStorage.getItem(LIB_KEY)); return Array.isArray(v) ? v : []; } catch (e) { return []; } };
 const storeSets = v => { try { localStorage.setItem(LIB_KEY, JSON.stringify(v)); } catch (e) {} };
 function setRamp(v) { state.ramp = v || ' '; changed(); }
-function appendGlyph(g) { setRamp(state.ramp.includes(';') ? state.ramp + ';' + g : state.ramp + g); }
+// a token longer than one character needs the ;-separated form, so the set switches to it
+function appendGlyph(g) {
+  const r = state.ramp;
+  if (r.includes(';')) setRamp(r + ';' + g);
+  else if ([...g].length > 1) setRamp([...[...r].map(c => c.trim()), g].join(';'));
+  else setRamp(r + g);
+}
 function dropGlyph() {
   const r = state.ramp;
   setRamp(r.includes(';') ? r.slice(0, Math.max(0, r.lastIndexOf(';'))) : [...r].slice(0, -1).join(''));
@@ -495,13 +574,21 @@ function buildLib() {
   const body = $('#libBody'), sets = loadSets();
   body.innerHTML = `<p class="note">${t('libHint')}</p>` +
     LIB.map(([k, g]) => `<div class="lib-group"><span>${t(k)}</span><div class="glyphs">${g.split(' ').map(c => `<button type="button" data-g="${esc(c)}">${esc(c)}</button>`).join('')}</div></div>`).join('') +
+    `<div class="lib-group"><span>${t('libSvg')}</span><p class="note">${t('libSvgHint')}</p><div class="glyphs">${[...svgGlyphs.map].map(([k, g]) =>
+      `<span class="svg-glyph"><button type="button" data-g="${esc(k)}" title="${esc(k)}"><span class="svgtok" style="background:currentColor;${esc(`-webkit-mask-image:url("${g.url}");mask-image:url("${g.url}")`)}"></span></button><button type="button" data-svgdel="${esc(k)}" title="${t('libDel')}" aria-label="${t('libDel')}">×</button></span>`).join('')}` +
+      `<label class="btn svg-add" title="${t('libSvgAdd')}">+ SVG<input type="file" accept=".svg,image/svg+xml" multiple data-svgadd></label></div></div>` +
     `<div class="lib-actions"><button type="button" data-a="back">${t('libBack')}</button><button type="button" data-a="clear">${t('libClear')}</button><button type="button" data-a="save">${t('libSave')}</button></div>` +
     (sets.length ? `<div class="lib-group"><span>${t('libSaved')}</span><div class="lib-sets">${sets.map((r, i) =>
       `<span class="lib-set"><button type="button" data-s="${i}">${esc(r)}</button><button type="button" data-del="${i}" title="${t('libDel')}" aria-label="${t('libDel')}">×</button></span>`).join('')}</div></div>` : '');
 }
+$('#libBody').addEventListener('change', async e => {
+  const inp = e.target.closest('[data-svgadd]'); if (!inp) return;
+  for (const f of [...inp.files]) await addSvgGlyph(f);
+});
 $('#libBody').addEventListener('click', e => {
   const b = e.target.closest('button'); if (!b) return;
-  if (b.dataset.g) appendGlyph(b.dataset.g);
+  if (b.dataset.svgdel) removeSvgGlyph(b.dataset.svgdel);
+  else if (b.dataset.g) appendGlyph(b.dataset.g);
   else if (b.dataset.a === 'back') dropGlyph();
   else if (b.dataset.a === 'clear') setRamp(' ');
   else if (b.dataset.a === 'save') {
@@ -538,38 +625,38 @@ function applyPreset(id) {
   activePreset = id; changed(true);
 }
 
-/* files */
-$('#file').addEventListener('change', e => { loadFile(e.target.files[0]); e.target.value = ''; });
-$('#sampleBtn').addEventListener('click', () => { useSample(); $('#hint').hidden = false; });
-// cloud demo: a multi-color image that shows off the color zones mode; also what the page opens with
-async function useCloud() {
+/* demo sources (users cannot open their own files; the demos are bundled) */
+$('#sampleBtn').addEventListener('click', useSample);
+// a bundled demo file; `look` sets the state before it opens, `tag` marks the source
+async function loadDemo(url, look, tag) {
   const before = source;
   try {
-    const res = await fetch('assets/cloud.jpg'); if (!res.ok) throw 0;
+    const res = await fetch(url); if (!res.ok) throw 0;
     const blob = await res.blob();
     if (source !== before) return; // something else was opened while this loaded
-    // small bold cells so the swirls read; on the image's own off-white, darker = denser (invert)
-    Object.assign(state, { color: 'zones', cell: 10, bold: true, invert: true, bg: '#F6F5F5', imgOpacity: 0, patch: false, label: '' }); changed();
-    loadFile(new File([blob], 'cloud.jpg', { type: blob.type || 'image/jpeg' }));
+    look(); changed();
+    loadFile(new File([blob], url.split('/').pop(), { type: blob.type || 'image/jpeg' }), tag);
   } catch (e) { if (source) toast(t('tNoCloud')); else useSample(); }
 }
+// cloud demo: a multi-color image that shows off the color zones mode; also what the page opens with.
+// Small bold cells so the swirls read; on the image's own off-white, darker = denser (invert)
+const useCloud = () => loadDemo('assets/cloud.jpg', () => Object.assign(state, { color: 'zones', cell: 10, bold: true, invert: true, bg: '#F6F5F5', imgOpacity: 0, patch: false, label: '' }));
 $('#cloudBtn').addEventListener('click', useCloud);
-// mode 2: generative clouds, all in js/mode2.js; without that script the button stays hidden
+// mode 2: the cloud demo with a row of looks to switch between, all in js/mode2.js;
+// without that script the button stays hidden
 if (GL.mode2) {
-  GL.mode2.mount($('.rail'), what => {
-    if (what === 'palette') { state.bg = GL.mode2.bg; syncUI(); }
-    if (source?.kind === 'mode2' && state.color === 'zones' && what !== 'view') detectZones();
-    dirty = true;
+  GL.mode2.mount($('.rail'), {
+    // a look replaces the whole style, like a preset; the frame, output size and detected zones stay
+    apply(look) {
+      const keep = { frame: state.frame, size: state.size, zones: state.zones, zoneN: state.zoneN, zoneTol: state.zoneTol };
+      state = withInks(clone({ ...DEFAULTS, ...look, ...keep }));
+      if (state.color === 'zones' && !state.zones.length) detectZones();
+      changed();
+    },
+    open: look => loadDemo(GL.mode2.src, () => { state = withInks(clone({ ...DEFAULTS, ...look, frame: state.frame, size: state.size })); }, 'mode2'),
   });
   $('#mode2Btn').hidden = false;
-  $('#mode2Btn').addEventListener('click', () => {
-    clearVideo(); GL.mode2.reset(); GL.mode2.draw(performance.now());
-    // the ASCII view colors each glyph from the clouds themselves; light ground, so darker = denser
-    Object.assign(state, { color: 'source', sat: 1.1, cell: 9, bold: true, invert: true, contrast: 1.25, cut: 0.04, bg: GL.mode2.bg,
-      bgOff: false, cellBg: false, imgOpacity: 0, patch: false, label: '' }); changed();
-    source = { kind: 'mode2', el: GL.mode2.canvas, name: 'mode2' };
-    detectZones(); $('#playBtn').hidden = true; $('#hint').hidden = true;
-  });
+  $('#mode2Btn').addEventListener('click', () => GL.mode2.start());
 }
 function updatePlayLabel() { if (source?.kind === 'video') $('#playBtn').textContent = source.el.paused ? t('play') : t('pause'); }
 $('#playBtn').addEventListener('click', () => {
@@ -578,10 +665,6 @@ $('#playBtn').addEventListener('click', () => {
   setTimeout(updatePlayLabel, 0);
 });
 const frame = $('#frame');
-['dragenter', 'dragover'].forEach(ev => frame.addEventListener(ev, e => { e.preventDefault(); frame.classList.add('drag'); }));
-['dragleave', 'drop'].forEach(ev => frame.addEventListener(ev, e => { e.preventDefault(); frame.classList.remove('drag'); }));
-frame.addEventListener('drop', e => loadFile(e.dataTransfer.files[0]));
-window.addEventListener('paste', e => { const f = [...(e.clipboardData?.files || [])][0]; if (f) loadFile(f); });
 
 /* export — a plain download link */
 function saveBlob(blob, name) {
@@ -631,11 +714,17 @@ function fontPath(fonts, tok, weight, size, cx, by, maxW) {
 }
 // fallback: trace the glyph as the browser renders it (8× the cell), merging pixel runs into rects
 function tracePath(tok, s, weight, size) {
+  return traceDrawn(s, (x, S, K) => {
+    if (svgGlyphs.has(tok)) { drawSvgGlyph(x, tok, 0, 0, S); return; }
+    x.fillStyle = '#fff'; x.textAlign = 'center'; x.textBaseline = 'middle';
+    x.font = `${weight} ${size * K}px "Geist Mono", ui-monospace, Menlo, monospace`;
+    if ([...tok].length > 1) x.fillText(tok, S / 2, S / 2 + S * 0.05, S * 0.94); else x.fillText(tok, S / 2, S / 2 + S * 0.05);
+  });
+}
+function traceDrawn(s, draw) {
   const K = 8, S = s * K, c = document.createElement('canvas'); c.width = c.height = S;
   const x = c.getContext('2d', { willReadFrequently: true });
-  x.fillStyle = '#fff'; x.textAlign = 'center'; x.textBaseline = 'middle';
-  x.font = `${weight} ${size * K}px "Geist Mono", ui-monospace, Menlo, monospace`;
-  if ([...tok].length > 1) x.fillText(tok, S / 2, S / 2 + S * 0.05, S * 0.94); else x.fillText(tok, S / 2, S / 2 + S * 0.05);
+  draw(x, S, K);
   const a = x.getImageData(0, 0, S, S).data, g = v => +(v / K).toFixed(3);
   let d = '', open = new Map(); // "x0,x1" → first row of a run that repeats down the rows
   const close = (key, y0, y1) => { const [x0, x1] = key.split(',').map(Number); d += `M${g(x0)} ${g(y0)}H${g(x1)}V${g(y1)}H${g(x0)}Z`; };
@@ -674,7 +763,6 @@ function buildSvg(fonts) {
   svgCells = [];
   try { render(performance.now()); } finally { var cells = svgCells; svgCells = null; }
   const { W, H, s, bcols, brows, blk, kinds } = lastInfo, f = v => +v.toFixed(2);
-  if (lastInfo.plain) return `<svg xmlns="http://www.w3.org/2000/svg" xmlns:xlink="http://www.w3.org/1999/xlink" width="${W}" height="${H}" viewBox="0 0 ${W} ${H}"><image width="${W}" height="${H}" xlink:href="${out.toDataURL('image/png')}"/></svg>`;
   const fs = f(s * state.fscale), weight = state.bold ? 700 : 500, maxW = s * 0.94;
   const drop = baseDrop(weight, fs);
   const defs = [], shapeIds = {}, glyphIds = {}, groups = new Map();
@@ -683,7 +771,10 @@ function buildSvg(fonts) {
     if (!groups.has(col)) groups.set(col, []);
     let el;
     const shape = GL.SHAPES_SVG[tok] || (!fonts && GL.SHADES_SVG[tok]);
-    if (shape) {
+    if (svgGlyphs.has(tok)) { // SVG glyphs are traced in both modes, there is no text for them
+      if (!glyphIds[tok]) { glyphIds[tok] = 'g' + Object.keys(glyphIds).length; defs.push(`<symbol id="${glyphIds[tok]}" overflow="visible">${tracePath(tok, s, weight, fs)}</symbol>`); }
+      el = `<use xlink:href="#${glyphIds[tok]}" x="${x * s}" y="${y * s}"/>`;
+    } else if (shape) {
       if (!shapeIds[tok]) { shapeIds[tok] = 's' + Object.keys(shapeIds).length; defs.push(`<symbol id="${shapeIds[tok]}" overflow="visible">${shape(s, state.fscale)}</symbol>`); }
       el = `<use xlink:href="#${shapeIds[tok]}" x="${x * s}" y="${y * s}"/>`;
     } else if (fonts) {
