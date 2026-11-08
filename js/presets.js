@@ -86,7 +86,7 @@ GL.DEFAULTS = {
   color: 'mono', bg: '#0A0A0A', inks: ['#FFFFFF', '#BBBBBB', '#888888', '#FFFFFF', '#FFFFFF', '#FFFFFF', '#FFFFFF', '#FFFFFF'], inkN: 1, sat: 1.2,
   imgOpacity: 0, imgBlend: 'source-over', blend: 'source-over', inkOpacity: 1, imgGray: true,
   patch: false, block: 6, reveal: 0, alt: 0.3, flip: 0, altSet: 'dots', seed: 7,
-  bgOff: false, cellBg: false, cellBgColor: '#FFFFFF',
+  bgOff: false, cellBg: false, cellBgColor: '#FFFFFF', mix: false,
   flicker: 0, grain: 0, zones: [], zoneN: 5, zoneTol: 1, label: '', labelPos: 'c', frame: 'source', size: '1080',
 };
 

@@ -303,13 +303,15 @@ function render(time) {
     if (zk >= 0 && at === zAt[zk]) {
       // a zone that is shown covers all its cells: brightness only picks among its real glyphs
       if (!at.G) continue;
-      let j = Math.round(v * (at.G - 1));
+      // mixed: every glyph of the zone shows up, scattered, instead of brightness picking one
+      let j = state.zones[zk].mix ? (hash(x, y, state.seed + zk + 1) * at.G) | 0 : Math.round(v * (at.G - 1));
       if (flicker && Math.random() < flicker) j = Math.max(0, Math.min(at.G - 1, j + (Math.random() < .5 ? -1 : 1)));
       lev = at.vis[j];
     } else {
       lev = Math.round(v * (at.L - 1));
       if (flicker && Math.random() < flicker) lev = Math.max(0, Math.min(at.L - 1, lev + (Math.random() < .5 ? -1 : 1)));
       if (at.empty[lev]) continue;
+      if (state.mix && at.G > 1) lev = at.vis[(hash(x, y, state.seed) * at.G) | 0]; // brightness only decides blank or not
     }
     mctx.drawImage(at.c, lev * s, 0, s, s, x * s, y * s, s, s);
     if (cellsOn) cellsOn[y * cols + x] = 1;
@@ -470,16 +472,23 @@ function renderZones() {
       + `<button type="button" class="zdel" aria-label="${t('zoneDel')} ${k + 1}">×</button>`
       + `<input type="text" class="zramp" spellcheck="false" placeholder="a;b;c" aria-label="${t('zoneSet')} ${k + 1}">`
       + `<div class="zsvg"><span>SVG</span>${[...svgGlyphs.map].map(([tok, g]) => `<button type="button" data-zg="${esc(tok)}" title="${t('zoneSvgAdd')} · ${esc(tok)}"><span class="svgtok" style="background:currentColor;${esc(`-webkit-mask-image:url("${g.url}");mask-image:url("${g.url}")`)}"></span></button>`).join('')}`
-      + `<label class="btn" title="${t('libSvgAdd')}">+<input type="file" accept=".svg,image/svg+xml" multiple class="zsvgadd"></label></div>`;
+      + `<label class="btn" title="${t('libSvgAdd')}">+<input type="file" accept=".svg,image/svg+xml" multiple class="zsvgadd"></label>`
+      + `<label class="check zmix" title="${t('zoneMixTip')}"><input type="checkbox" class="zmixin"> <span>${t('zoneMix')}</span></label></div>`;
     const q = s => row.querySelector(s);
-    q('.zink').value = z.ink; q('.zset').value = setKeyOf(z.ramp); q('.zon').checked = z.on; q('.zramp').value = z.ramp;
+    q('.zink').value = z.ink; q('.zset').value = setKeyOf(z.ramp); q('.zon').checked = z.on; q('.zramp').value = z.ramp; q('.zmixin').checked = !!z.mix;
+    q('.zmixin').addEventListener('change', e => { z.mix = e.target.checked; zoneEdited(); });
     q('.zsrc').addEventListener('click', () => { pickTarget = pickTarget === k ? null : k; styleZones(); if (pickTarget !== null) toast(t('tZonePick')); });
     q('.zink').addEventListener('input', e => { z.ink = e.target.value; zoneEdited(); });
     q('.zon').addEventListener('change', e => { z.on = e.target.checked; zoneEdited(); });
     q('.zset').addEventListener('change', e => { if (e.target.value) { z.ramp = CHARSETS[e.target.value].ramp; q('.zramp').value = z.ramp; } zoneEdited(); });
     q('.zramp').addEventListener('input', e => { z.ramp = e.target.value || ' '; q('.zset').value = setKeyOf(z.ramp); zoneEdited(); });
     q('.zdel').addEventListener('click', () => { state.zones.splice(k, 1); pickTarget = null; renderZones(); zoneEdited(); });
-    const addTok = tok => { z.ramp = withGlyph(z.ramp, tok); q('.zramp').value = z.ramp; q('.zset').value = setKeyOf(z.ramp); zoneEdited(); };
+    // shapes have no light-to-dark order, so a second SVG in a zone turns mixing on
+    const addTok = tok => {
+      z.ramp = withGlyph(z.ramp, tok);
+      if (GL.parseRamp(z.ramp).filter(x => svgGlyphs.has(x)).length > 1) { z.mix = true; q('.zmixin').checked = true; }
+      q('.zramp').value = z.ramp; q('.zset').value = setKeyOf(z.ramp); zoneEdited();
+    };
     row.querySelectorAll('[data-zg]').forEach(b => b.addEventListener('click', () => addTok(b.dataset.zg)));
     q('.zsvgadd').addEventListener('change', async e => { for (const f of [...e.target.files]) await addSvgGlyph(f, addTok); });
     box.appendChild(row);
