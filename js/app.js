@@ -157,7 +157,7 @@ function removeSvgGlyph(tok) {
   const toks = GL.parseRamp(state.ramp);
   if (toks.includes(tok)) setRamp(toks.filter(x => x !== tok).join(';'));
   for (const z of state.zones) { const zt = GL.parseRamp(z.ramp); if (zt.includes(tok)) z.ramp = zt.filter(x => x !== tok).join(';') || ' '; }
-  for (const k in atlasCache) delete atlasCache[k]; dirty = true; buildLib(); renderZones();
+  for (const k in atlasCache) delete atlasCache[k]; dirty = true; buildLib(); renderZones(); syncUI();
 }
 // fits the shape inside the cell, scaled with the glyph size
 function drawSvgGlyph(x, tok, l, t, s) {
@@ -165,7 +165,7 @@ function drawSvgGlyph(x, tok, l, t, s) {
   const b = s * Math.min(1, 0.92 * state.fscale), w = g.ar >= 1 ? b : b * g.ar, h = g.ar >= 1 ? b / g.ar : b;
   x.drawImage(g.img, l + (s - w) / 2, t + (s - h) / 2, w, h);
 }
-Promise.all(Object.entries(readSvgStore()).map(([k, m]) => loadSvgGlyph(k, m).catch(() => {}))).then(() => { buildLib(); renderZones(); });
+Promise.all(Object.entries(readSvgStore()).map(([k, m]) => loadSvgGlyph(k, m).catch(() => {}))).then(() => { buildLib(); renderZones(); syncUI(); });
 
 /* ---------- glyph atlas ---------- */
 const atlasCache = {};
@@ -448,10 +448,10 @@ function syncUI() {
   state.inks.forEach((h, i) => { const c = $('#ink' + i); c.value = h; c.classList.toggle('off', i >= state.inkN); });
   document.querySelectorAll('.preset').forEach(b => b.classList.toggle('on', b.dataset.p === activePreset));
   const zoneMode = state.color === 'zones';
-  $('#zonePanel').hidden = !zoneMode; $('#legend').hidden = zoneMode;
+  $('#zonePanel').hidden = !zoneMode; $('#legend').hidden = zoneMode; $('#svgBar').hidden = zoneMode;
   document.querySelectorAll('.nozone').forEach(el => el.hidden = zoneMode); // zones set their own colors frame.classList.toggle('zoning', zoneMode);
   $('#imgOn').checked = state.imgOpacity > 0;
-  styleZones(); drawLegend();
+  styleZones(); drawLegend(); buildSvgBar();
 }
 
 /* ---------- color zones panel ---------- */
@@ -525,7 +525,7 @@ out.addEventListener('click', e => {
 $('#zoneDetect').addEventListener('click', detectZones);
 // which color each glyph of the main set gets, in the current color mode
 function drawLegend() {
-  const toks = GL.parseRamp(state.ramp).filter(Boolean), G = toks.length, n = state.inkN;
+  const all = GL.parseRamp(state.ramp), at = all.map((x, i) => (x ? i : -1)).filter(i => i >= 0), toks = at.map(i => all[i]), G = toks.length, n = state.inkN;
   const inks = state.inks.map(hex), bgc = hex(state.bg);
   const contrastInk = bgc[0] * .299 + bgc[1] * .587 + bgc[2] * .114 > 140 ? '#151515' : '#FFFFFF';
   const MAX = 16, box = $('#legend');
@@ -539,10 +539,11 @@ function drawLegend() {
       case 'duotone': { const a = inks[0], z = inks[Math.min(1, n - 1)], f = G > 1 ? j / (G - 1) : 1; col = `rgb(${a.map((c, k) => Math.round(c + (z[k] - c) * f))})`; break; }
       default: col = contrastInk;
     }
-    const sp = document.createElement('span'), g = svgGlyphs.map.get(tok);
-    if (g) { sp.className = 'svgtok'; sp.title = tok; sp.style.backgroundColor = col; sp.style.webkitMaskImage = sp.style.maskImage = `url("${g.url}")`; }
-    else { sp.textContent = tok; sp.style.color = col; }
-    box.appendChild(sp);
+    const b = document.createElement('button'), g = svgGlyphs.map.get(tok);
+    b.type = 'button'; b.className = 'lg' + (selGlyph === at[j] ? ' sel' : ''); b.dataset.i = at[j]; b.title = `${tok} · ${t('lgPick')}`;
+    if (g) { const sp = document.createElement('span'); sp.className = 'svgtok'; sp.style.backgroundColor = col; sp.style.webkitMaskImage = sp.style.maskImage = `url("${g.url}")`; b.appendChild(sp); }
+    else { b.textContent = tok; b.style.color = col; }
+    box.appendChild(b);
   });
   if (G > MAX) { const sp = document.createElement('span'); sp.className = 'more'; sp.style.color = contrastInk; sp.textContent = `+${G - MAX}`; box.appendChild(sp); }
 }
@@ -581,6 +582,39 @@ function withGlyph(r, g) {
   return r + g;
 }
 function appendGlyph(g) { setRamp(withGlyph(state.ramp, g)); }
+// the glyph picked in the set preview, by its index in the parsed set; new glyphs replace it
+let selGlyph = null;
+function placeGlyph(g) {
+  const toks = GL.parseRamp(state.ramp);
+  if (selGlyph !== null && toks[selGlyph]) { toks[selGlyph] = g; setRamp(toks.join(';')); }
+  else appendGlyph(g);
+}
+// the SVG bar under the set preview: uploaded shapes, + SVG, and what the selection does
+function buildSvgBar() {
+  const toks = GL.parseRamp(state.ramp), sel = selGlyph !== null && toks[selGlyph] ? toks[selGlyph] : null;
+  if (!sel) selGlyph = null;
+  $('#svgBar').innerHTML = `<div class="svgbar-row"><span class="svgbar-label">SVG</span>${[...svgGlyphs.map].map(([k, g]) =>
+      `<span class="svg-glyph"><button type="button" data-sv="${esc(k)}" title="${esc(k)} · ${t(sel ? 'svgSwap' : 'svgAppend')}"><span class="svgtok" style="background:currentColor;${esc(`-webkit-mask-image:url("${g.url}");mask-image:url("${g.url}")`)}"></span></button><button type="button" data-svgdel="${esc(k)}" title="${t('libDel')}" aria-label="${t('libDel')} ${esc(k)}">×</button></span>`).join('')}` +
+    `<label class="btn svg-add" title="${t(sel ? 'svgUploadSwap' : 'libSvgAdd')}">+ SVG<input type="file" accept=".svg,image/svg+xml" multiple data-svgadd></label></div>` +
+    (sel ? `<div class="svgbar-sel"><span>${t('selGlyph')} <b>${esc(sel)}</b> · ${t('selHint')}</span><button type="button" data-a="selDel">${t('selDel')}</button><button type="button" data-a="unsel">${t('selDone')}</button></div>`
+      : `<p class="note">${t('svgBarHint')}</p>`);
+}
+$('#legend').addEventListener('click', e => {
+  const b = e.target.closest('.lg'); if (!b) return;
+  selGlyph = selGlyph === +b.dataset.i ? null : +b.dataset.i; syncUI();
+});
+$('#svgBar').addEventListener('click', e => {
+  const b = e.target.closest('button'); if (!b) return;
+  if (b.dataset.svgdel) removeSvgGlyph(b.dataset.svgdel);
+  else if (b.dataset.sv) placeGlyph(b.dataset.sv);
+  else if (b.dataset.a === 'unsel') { selGlyph = null; syncUI(); }
+  else if (b.dataset.a === 'selDel') { const toks = GL.parseRamp(state.ramp); toks.splice(selGlyph, 1); selGlyph = null; setRamp(toks.join(';')); }
+});
+$('#svgBar').addEventListener('change', async e => {
+  const inp = e.target.closest('[data-svgadd]'); if (!inp) return;
+  const files = [...inp.files];
+  for (let i = 0; i < files.length; i++) await addSvgGlyph(files[i], i ? appendGlyph : placeGlyph); // the first file takes the selected spot
+});
 function dropGlyph() {
   const r = state.ramp;
   setRamp(r.includes(';') ? r.slice(0, Math.max(0, r.lastIndexOf(';'))) : [...r].slice(0, -1).join(''));
@@ -589,21 +623,13 @@ function buildLib() {
   const body = $('#libBody'), sets = loadSets();
   body.innerHTML = `<p class="note">${t('libHint')}</p>` +
     LIB.map(([k, g]) => `<div class="lib-group"><span>${t(k)}</span><div class="glyphs">${g.split(' ').map(c => `<button type="button" data-g="${esc(c)}">${esc(c)}</button>`).join('')}</div></div>`).join('') +
-    `<div class="lib-group"><span>${t('libSvg')}</span><p class="note">${t('libSvgHint')}</p><div class="glyphs">${[...svgGlyphs.map].map(([k, g]) =>
-      `<span class="svg-glyph"><button type="button" data-g="${esc(k)}" title="${esc(k)}"><span class="svgtok" style="background:currentColor;${esc(`-webkit-mask-image:url("${g.url}");mask-image:url("${g.url}")`)}"></span></button><button type="button" data-svgdel="${esc(k)}" title="${t('libDel')}" aria-label="${t('libDel')}">×</button></span>`).join('')}` +
-      `<label class="btn svg-add" title="${t('libSvgAdd')}">+ SVG<input type="file" accept=".svg,image/svg+xml" multiple data-svgadd></label></div></div>` +
     `<div class="lib-actions"><button type="button" data-a="back">${t('libBack')}</button><button type="button" data-a="clear">${t('libClear')}</button><button type="button" data-a="save">${t('libSave')}</button></div>` +
     (sets.length ? `<div class="lib-group"><span>${t('libSaved')}</span><div class="lib-sets">${sets.map((r, i) =>
       `<span class="lib-set"><button type="button" data-s="${i}">${esc(r)}</button><button type="button" data-del="${i}" title="${t('libDel')}" aria-label="${t('libDel')}">×</button></span>`).join('')}</div></div>` : '');
 }
-$('#libBody').addEventListener('change', async e => {
-  const inp = e.target.closest('[data-svgadd]'); if (!inp) return;
-  for (const f of [...inp.files]) await addSvgGlyph(f);
-});
 $('#libBody').addEventListener('click', e => {
   const b = e.target.closest('button'); if (!b) return;
-  if (b.dataset.svgdel) removeSvgGlyph(b.dataset.svgdel);
-  else if (b.dataset.g) appendGlyph(b.dataset.g);
+  if (b.dataset.g) placeGlyph(b.dataset.g);
   else if (b.dataset.a === 'back') dropGlyph();
   else if (b.dataset.a === 'clear') setRamp(' ');
   else if (b.dataset.a === 'save') {
