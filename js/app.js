@@ -481,20 +481,18 @@ function renderZones() {
       + `<select class="zset" aria-label="${t('zoneSet')} ${k + 1}">${zoneSetOptions()}</select>`
       + `<label class="check" title="${t('zoneShow')}"><input type="checkbox" class="zon" aria-label="${t('zoneShow')} ${k + 1}"></label>`
       + `<button type="button" class="zdel" aria-label="${t('zoneDel')} ${k + 1}">×</button>`
-      + `<input type="text" class="zramp" spellcheck="false" placeholder="a;b;c" aria-label="${t('zoneSet')} ${k + 1}">`
       + `<div class="zglyphs legend">${zoneGlyphs(z, k)}</div>`
-      + (zSel && zSel.z === k && GL.parseRamp(z.ramp)[zSel.i] ? `<div class="svgbar-sel"><span>${t('selGlyph')} <b>${esc(GL.parseRamp(z.ramp)[zSel.i])}</b> · ${t('zSelHint')}</span><button type="button" class="zseldel">${t('selDel')}</button><button type="button" class="zselno">${t('selDone')}</button></div>` : '')
+      + (zSel && zSel.z === k && GL.parseRamp(z.ramp)[zSel.i] ? `<div class="svgbar-sel"><span>${t('selGlyph')} <b>${esc(GL.parseRamp(z.ramp)[zSel.i])}</b> · ${t('zSelHint')}</span><input type="text" class="zselin" spellcheck="false" maxlength="16" placeholder="${t('zSelType')}" aria-label="${t('zSelType')}"><button type="button" class="zseldel">${t('selDel')}</button><button type="button" class="zselno">${t('selDone')}</button></div>` : '')
       + `<div class="zsvg"><span>SVG</span>${[...svgGlyphs.map].map(([tok, g]) => `<button type="button" data-zg="${esc(tok)}" title="${t('zoneSvgAdd')} · ${esc(tok)}"><span class="svgtok" style="background:currentColor;${esc(`-webkit-mask-image:url("${g.url}");mask-image:url("${g.url}")`)}"></span></button>`).join('')}`
       + `<label class="btn" title="${t('libSvgAdd')}">+<input type="file" accept=".svg,image/svg+xml" multiple class="zsvgadd"></label>`
       + `<label class="check zmix" title="${t('zoneMixTip')}"><input type="checkbox" class="zmixin"> <span>${t('zoneMix')}</span></label></div>`;
     const q = s => row.querySelector(s);
-    q('.zink').value = z.ink; q('.zset').value = setKeyOf(z.ramp); q('.zon').checked = z.on; q('.zramp').value = z.ramp; q('.zmixin').checked = !!z.mix;
+    q('.zink').value = z.ink; q('.zset').value = setKeyOf(z.ramp); q('.zon').checked = z.on; q('.zmixin').checked = !!z.mix;
     q('.zmixin').addEventListener('change', e => { z.mix = e.target.checked; zoneEdited(); });
     q('.zsrc').addEventListener('click', () => { pickTarget = pickTarget === k ? null : k; styleZones(); if (pickTarget !== null) toast(t('tZonePick')); });
     q('.zink').addEventListener('input', e => { z.ink = e.target.value; zoneEdited(); });
     q('.zon').addEventListener('change', e => { z.on = e.target.checked; zoneEdited(); });
-    q('.zset').addEventListener('change', e => { if (e.target.value) { z.ramp = CHARSETS[e.target.value].ramp; q('.zramp').value = z.ramp; zSel = null; renderZones(); } zoneEdited(); });
-    q('.zramp').addEventListener('input', e => { z.ramp = e.target.value || ' '; q('.zset').value = setKeyOf(z.ramp); q('.zglyphs').innerHTML = zoneGlyphs(z, k); zoneEdited(); });
+    q('.zset').addEventListener('change', e => { if (e.target.value) { z.ramp = CHARSETS[e.target.value].ramp; zSel = null; renderZones(); } zoneEdited(); });
     q('.zdel').addEventListener('click', () => { state.zones.splice(k, 1); pickTarget = null; zSel = null; renderZones(); zoneEdited(); });
     // an SVG replaces the picked glyph of this zone, or goes to the end of its set;
     // shapes have no light-to-dark order, so a second SVG in a zone turns mixing on
@@ -508,6 +506,10 @@ function renderZones() {
       const i = +b.dataset.zi; zSel = zSel && zSel.z === k && zSel.i === i ? null : { z: k, i }; renderZones();
     }));
     row.querySelector('.zselno')?.addEventListener('click', () => { zSel = null; renderZones(); });
+    row.querySelector('.zselin')?.addEventListener('change', e => {
+      const v = e.target.value.trim().replace(/;/g, ''); if (!v) return;
+      const toks = GL.parseRamp(z.ramp); toks[zSel.i] = v; z.ramp = toks.join(';'); renderZones(); zoneEdited();
+    });
     row.querySelector('.zseldel')?.addEventListener('click', () => {
       const toks = GL.parseRamp(z.ramp); toks.splice(zSel.i, 1); z.ramp = toks.join(';') || ' '; zSel = null; renderZones(); zoneEdited();
     });
@@ -524,7 +526,6 @@ function styleZones() {
     const z = state.zones[+row.dataset.z]; if (!z) return;
     row.classList.toggle('off', !z.on); row.classList.toggle('picking', pickTarget === +row.dataset.z);
     const src = row.querySelector('.zsrc'); src.style.background = z.src; src.title = `${t('zonePickTitle')} · ${z.src}${z.share ? ` · ${Math.round(z.share * 100)}%` : ''}`;
-    const rp = row.querySelector('.zramp'); rp.style.background = state.bg; rp.style.color = z.ink;
     const zg = row.querySelector('.zglyphs'); zg.style.background = state.bg; zg.querySelectorAll('.lg').forEach(b => { b.style.color = z.ink; });
   });
   frame.classList.toggle('picking', pickTarget !== null);
