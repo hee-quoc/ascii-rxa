@@ -119,6 +119,8 @@ input[type=color]{width:30px;height:26px;padding:0;border:1px solid var(--line);
 .zone .zmix{margin-left:auto;font-size:11px}
 .zone .zglyphs,.zone .svgbar-sel{grid-column:1/-1}
 .zone .zselin{flex:1 1 90px;width:auto}
+.zone .zlib{grid-column:1/-1;display:grid;gap:8px;padding:8px;border:1px solid var(--line);border-radius:4px;max-height:260px;overflow:auto}
+.zone .zlibbtn.on{background:var(--fg);color:var(--bg);border-color:var(--fg)}
 .zone .zglyphs{min-height:30px;padding:3px 5px;gap:2px 4px}
 .frame.zoning #out{cursor:copy}
 .frame.picking #out{cursor:crosshair}

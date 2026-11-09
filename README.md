@@ -73,7 +73,7 @@ Chế độ màu **Vùng** chia ảnh theo màu thay vì theo độ sáng. Khi m
 
 - **Màu gốc**: màu app tìm thấy. Bấm vào ô này rồi bấm lên ảnh để chọn lại.
 - **Màu xuất**: màu ký tự của vùng đó.
-- **Bộ ký tự** riêng: chọn bộ có sẵn, rồi sửa từng ký tự ngay trên ô xem trước của vùng (bấm một ký tự, sau đó bấm một hình SVG, tải SVG mới, hoặc gõ ký tự / chữ mới rồi Enter; có nút xoá ký tự).
+- **Bộ ký tự** riêng: chọn bộ có sẵn, rồi sửa từng ký tự ngay trên ô xem trước của vùng (bấm một ký tự, sau đó bấm một hình SVG, tải SVG mới, mở **Thư viện ký tự** ngay tại vùng để chọn, hoặc gõ ký tự / chữ mới rồi Enter; có nút xoá ký tự).
 - **Bật/tắt**: vùng chiếm nhiều viền ảnh nhất (thường là nền) được tắt sẵn.
 
 Mỗi ô ký tự thuộc về vùng có màu gốc gần nhất (so theo sắc độ nhiều hơn độ sáng, nên mặt sáng và mặt tối của một đám mây vẫn chung một vùng). Trong vùng đó, độ sáng chọn ký tự thưa hay dày. **Độ rộng vùng** dưới 100% sẽ bỏ trống những chỗ không đủ giống vùng nào. Bấm thẳng lên ảnh để thêm vùng mới. Đổi preset không làm mất các vùng.

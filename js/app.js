@@ -460,7 +460,7 @@ let pickTarget = null;           // zone index waiting for a color picked on the
 const zoneSetOptions = () => Object.entries(CHARSETS).map(([k, c]) => `<option value="${k}">${c.name}</option>`).join('') + `<option value="">${t('zoneCustom')}</option>`;
 const setKeyOf = ramp => Object.keys(CHARSETS).find(k => CHARSETS[k].ramp === ramp) || '';
 // a zone's glyphs as buttons, so one can be picked and swapped; zSel = { z, i } is the pick
-let zSel = null;
+let zSel = null, zLib = false; // zLib: the glyph library is open under the pick
 function zoneGlyphs(z, k) {
   return GL.parseRamp(z.ramp).map((tok, i) => {
     if (!tok) return '';
@@ -482,7 +482,8 @@ function renderZones() {
       + `<label class="check" title="${t('zoneShow')}"><input type="checkbox" class="zon" aria-label="${t('zoneShow')} ${k + 1}"></label>`
       + `<button type="button" class="zdel" aria-label="${t('zoneDel')} ${k + 1}">×</button>`
       + `<div class="zglyphs legend">${zoneGlyphs(z, k)}</div>`
-      + (zSel && zSel.z === k && GL.parseRamp(z.ramp)[zSel.i] ? `<div class="svgbar-sel"><span>${t('selGlyph')} <b>${esc(GL.parseRamp(z.ramp)[zSel.i])}</b> · ${t('zSelHint')}</span><input type="text" class="zselin" spellcheck="false" maxlength="16" placeholder="${t('zSelType')}" aria-label="${t('zSelType')}"><button type="button" class="zseldel">${t('selDel')}</button><button type="button" class="zselno">${t('selDone')}</button></div>` : '')
+      + (zSel && zSel.z === k && GL.parseRamp(z.ramp)[zSel.i] ? `<div class="svgbar-sel"><span>${t('selGlyph')} <b>${esc(GL.parseRamp(z.ramp)[zSel.i])}</b> · ${t('zSelHint')}</span><input type="text" class="zselin" spellcheck="false" maxlength="16" placeholder="${t('zSelType')}" aria-label="${t('zSelType')}"><button type="button" class="zlibbtn${zLib ? ' on' : ''}">${t('libTitle')}</button><button type="button" class="zseldel">${t('selDel')}</button><button type="button" class="zselno">${t('selDone')}</button></div>`
+        + (zLib ? `<div class="zlib">${LIB.map(([lk, g]) => `<div class="lib-group"><span>${t(lk)}</span><div class="glyphs">${g.split(' ').map(c => `<button type="button" data-zl="${esc(c)}">${esc(c)}</button>`).join('')}</div></div>`).join('')}</div>` : '') : '')
       + `<div class="zsvg"><span>SVG</span>${[...svgGlyphs.map].map(([tok, g]) => `<button type="button" data-zg="${esc(tok)}" title="${t('zoneSvgAdd')} · ${esc(tok)}"><span class="svgtok" style="background:currentColor;${esc(`-webkit-mask-image:url("${g.url}");mask-image:url("${g.url}")`)}"></span></button>`).join('')}`
       + `<label class="btn" title="${t('libSvgAdd')}">+<input type="file" accept=".svg,image/svg+xml" multiple class="zsvgadd"></label>`
       + `<label class="check zmix" title="${t('zoneMixTip')}"><input type="checkbox" class="zmixin"> <span>${t('zoneMix')}</span></label></div>`;
@@ -505,7 +506,11 @@ function renderZones() {
     row.querySelectorAll('[data-zi]').forEach(b => b.addEventListener('click', () => {
       const i = +b.dataset.zi; zSel = zSel && zSel.z === k && zSel.i === i ? null : { z: k, i }; renderZones();
     }));
-    row.querySelector('.zselno')?.addEventListener('click', () => { zSel = null; renderZones(); });
+    row.querySelector('.zselno')?.addEventListener('click', () => { zSel = null; zLib = false; renderZones(); });
+    row.querySelector('.zlibbtn')?.addEventListener('click', () => { zLib = !zLib; renderZones(); });
+    row.querySelectorAll('[data-zl]').forEach(b => b.addEventListener('click', () => {
+      const toks = GL.parseRamp(z.ramp); toks[zSel.i] = b.dataset.zl; z.ramp = toks.join(';'); renderZones(); zoneEdited();
+    }));
     row.querySelector('.zselin')?.addEventListener('change', e => {
       const v = e.target.value.trim().replace(/;/g, ''); if (!v) return;
       const toks = GL.parseRamp(z.ramp); toks[zSel.i] = v; z.ramp = toks.join(';'); renderZones(); zoneEdited();
@@ -620,7 +625,7 @@ function buildSvgBar() {
   $('#svgBar').innerHTML = `<div class="svgbar-row"><span class="svgbar-label">SVG</span>${[...svgGlyphs.map].map(([k, g]) =>
       `<span class="svg-glyph"><button type="button" data-sv="${esc(k)}" title="${esc(k)} · ${t(sel ? 'svgSwap' : 'svgAppend')}"><span class="svgtok" style="background:currentColor;${esc(`-webkit-mask-image:url("${g.url}");mask-image:url("${g.url}")`)}"></span></button><button type="button" data-svgdel="${esc(k)}" title="${t('libDel')}" aria-label="${t('libDel')} ${esc(k)}">×</button></span>`).join('')}` +
     `<label class="btn svg-add" title="${t(sel ? 'svgUploadSwap' : 'libSvgAdd')}">+ SVG<input type="file" accept=".svg,image/svg+xml" multiple data-svgadd></label></div>` +
-    (sel ? `<div class="svgbar-sel"><span>${t('selGlyph')} <b>${esc(sel)}</b> · ${t('selHint')}</span><button type="button" data-a="selDel">${t('selDel')}</button><button type="button" data-a="unsel">${t('selDone')}</button></div>`
+    (sel ? `<div class="svgbar-sel"><span>${t('selGlyph')} <b>${esc(sel)}</b> · ${t('selHint')}</span><button type="button" data-a="lib">${t('libTitle')}</button><button type="button" data-a="selDel">${t('selDel')}</button><button type="button" data-a="unsel">${t('selDone')}</button></div>`
       : `<p class="note">${t('svgBarHint')}</p>`);
 }
 $('#legend').addEventListener('click', e => {
@@ -632,6 +637,7 @@ $('#svgBar').addEventListener('click', e => {
   if (b.dataset.svgdel) removeSvgGlyph(b.dataset.svgdel);
   else if (b.dataset.sv) placeGlyph(b.dataset.sv);
   else if (b.dataset.a === 'unsel') { selGlyph = null; syncUI(); }
+  else if (b.dataset.a === 'lib') { const l = $('#glyphLib'); l.open = true; l.scrollIntoView({ block: 'nearest', behavior: 'smooth' }); }
   else if (b.dataset.a === 'selDel') { const toks = GL.parseRamp(state.ramp); toks.splice(selGlyph, 1); selGlyph = null; setRamp(toks.join(';')); }
 });
 $('#svgBar').addEventListener('change', async e => {
