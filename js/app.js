@@ -36,6 +36,7 @@ function useSample() {
 // zones come from the current source (a video's first frame) and are reset when it changes
 function detectZones() {
   if (!source) return;
+  zSel = null;
   const [sw, sh] = srcSize(source); if (!sw || !sh) return;
   state.zones = GL.detectZones(source.el, sw, sh, state.zoneN);
   pickTarget = null; renderZones(); dirty = true;
@@ -458,6 +459,16 @@ function syncUI() {
 let pickTarget = null;           // zone index waiting for a color picked on the canvas
 const zoneSetOptions = () => Object.entries(CHARSETS).map(([k, c]) => `<option value="${k}">${c.name}</option>`).join('') + `<option value="">${t('zoneCustom')}</option>`;
 const setKeyOf = ramp => Object.keys(CHARSETS).find(k => CHARSETS[k].ramp === ramp) || '';
+// a zone's glyphs as buttons, so one can be picked and swapped; zSel = { z, i } is the pick
+let zSel = null;
+function zoneGlyphs(z, k) {
+  return GL.parseRamp(z.ramp).map((tok, i) => {
+    if (!tok) return '';
+    const g = svgGlyphs.map.get(tok), on = zSel && zSel.z === k && zSel.i === i ? ' sel' : '';
+    return `<button type="button" class="lg${on}" data-zi="${i}" title="${esc(tok)} · ${t('lgPick')}" style="color:${z.ink}">${g
+      ? `<span class="svgtok" style="background:currentColor;${esc(`-webkit-mask-image:url("${g.url}");mask-image:url("${g.url}")`)}"></span>` : esc(tok)}</button>`;
+  }).join('');
+}
 function renderZones() {
   const box = $('#zoneList'); if (!box) return;
   box.innerHTML = '';
@@ -471,6 +482,8 @@ function renderZones() {
       + `<label class="check" title="${t('zoneShow')}"><input type="checkbox" class="zon" aria-label="${t('zoneShow')} ${k + 1}"></label>`
       + `<button type="button" class="zdel" aria-label="${t('zoneDel')} ${k + 1}">×</button>`
       + `<input type="text" class="zramp" spellcheck="false" placeholder="a;b;c" aria-label="${t('zoneSet')} ${k + 1}">`
+      + `<div class="zglyphs legend">${zoneGlyphs(z, k)}</div>`
+      + (zSel && zSel.z === k && GL.parseRamp(z.ramp)[zSel.i] ? `<div class="svgbar-sel"><span>${t('selGlyph')} <b>${esc(GL.parseRamp(z.ramp)[zSel.i])}</b> · ${t('zSelHint')}</span><button type="button" class="zseldel">${t('selDel')}</button><button type="button" class="zselno">${t('selDone')}</button></div>` : '')
       + `<div class="zsvg"><span>SVG</span>${[...svgGlyphs.map].map(([tok, g]) => `<button type="button" data-zg="${esc(tok)}" title="${t('zoneSvgAdd')} · ${esc(tok)}"><span class="svgtok" style="background:currentColor;${esc(`-webkit-mask-image:url("${g.url}");mask-image:url("${g.url}")`)}"></span></button>`).join('')}`
       + `<label class="btn" title="${t('libSvgAdd')}">+<input type="file" accept=".svg,image/svg+xml" multiple class="zsvgadd"></label>`
       + `<label class="check zmix" title="${t('zoneMixTip')}"><input type="checkbox" class="zmixin"> <span>${t('zoneMix')}</span></label></div>`;
@@ -480,15 +493,24 @@ function renderZones() {
     q('.zsrc').addEventListener('click', () => { pickTarget = pickTarget === k ? null : k; styleZones(); if (pickTarget !== null) toast(t('tZonePick')); });
     q('.zink').addEventListener('input', e => { z.ink = e.target.value; zoneEdited(); });
     q('.zon').addEventListener('change', e => { z.on = e.target.checked; zoneEdited(); });
-    q('.zset').addEventListener('change', e => { if (e.target.value) { z.ramp = CHARSETS[e.target.value].ramp; q('.zramp').value = z.ramp; } zoneEdited(); });
-    q('.zramp').addEventListener('input', e => { z.ramp = e.target.value || ' '; q('.zset').value = setKeyOf(z.ramp); zoneEdited(); });
-    q('.zdel').addEventListener('click', () => { state.zones.splice(k, 1); pickTarget = null; renderZones(); zoneEdited(); });
+    q('.zset').addEventListener('change', e => { if (e.target.value) { z.ramp = CHARSETS[e.target.value].ramp; q('.zramp').value = z.ramp; zSel = null; renderZones(); } zoneEdited(); });
+    q('.zramp').addEventListener('input', e => { z.ramp = e.target.value || ' '; q('.zset').value = setKeyOf(z.ramp); q('.zglyphs').innerHTML = zoneGlyphs(z, k); zoneEdited(); });
+    q('.zdel').addEventListener('click', () => { state.zones.splice(k, 1); pickTarget = null; zSel = null; renderZones(); zoneEdited(); });
+    // an SVG replaces the picked glyph of this zone, or goes to the end of its set;
     // shapes have no light-to-dark order, so a second SVG in a zone turns mixing on
     const addTok = tok => {
-      z.ramp = withGlyph(z.ramp, tok);
-      if (GL.parseRamp(z.ramp).filter(x => svgGlyphs.has(x)).length > 1) { z.mix = true; q('.zmixin').checked = true; }
-      q('.zramp').value = z.ramp; q('.zset').value = setKeyOf(z.ramp); zoneEdited();
+      const toks = GL.parseRamp(z.ramp);
+      if (zSel && zSel.z === k && toks[zSel.i]) { toks[zSel.i] = tok; z.ramp = toks.join(';'); } else z.ramp = withGlyph(z.ramp, tok);
+      if (GL.parseRamp(z.ramp).filter(x => svgGlyphs.has(x)).length > 1) z.mix = true;
+      renderZones(); zoneEdited();
     };
+    row.querySelectorAll('[data-zi]').forEach(b => b.addEventListener('click', () => {
+      const i = +b.dataset.zi; zSel = zSel && zSel.z === k && zSel.i === i ? null : { z: k, i }; renderZones();
+    }));
+    row.querySelector('.zselno')?.addEventListener('click', () => { zSel = null; renderZones(); });
+    row.querySelector('.zseldel')?.addEventListener('click', () => {
+      const toks = GL.parseRamp(z.ramp); toks.splice(zSel.i, 1); z.ramp = toks.join(';') || ' '; zSel = null; renderZones(); zoneEdited();
+    });
     row.querySelectorAll('[data-zg]').forEach(b => b.addEventListener('click', () => addTok(b.dataset.zg)));
     q('.zsvgadd').addEventListener('change', async e => { for (const f of [...e.target.files]) await addSvgGlyph(f, addTok); });
     box.appendChild(row);
@@ -503,6 +525,7 @@ function styleZones() {
     row.classList.toggle('off', !z.on); row.classList.toggle('picking', pickTarget === +row.dataset.z);
     const src = row.querySelector('.zsrc'); src.style.background = z.src; src.title = `${t('zonePickTitle')} · ${z.src}${z.share ? ` · ${Math.round(z.share * 100)}%` : ''}`;
     const rp = row.querySelector('.zramp'); rp.style.background = state.bg; rp.style.color = z.ink;
+    const zg = row.querySelector('.zglyphs'); zg.style.background = state.bg; zg.querySelectorAll('.lg').forEach(b => { b.style.color = z.ink; });
   });
   frame.classList.toggle('picking', pickTarget !== null);
 }
