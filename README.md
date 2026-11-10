@@ -86,7 +86,14 @@ Bộ ký tự **Bars** và **Shapes** không vẽ bằng font mà vẽ bằng h�
 
 ## Mode 2 (thử nghiệm)
 
-Nút **Mode 2** mở ảnh mây demo (`assets/cloud.jpg`) kèm bảng **Kiểu ASCII** ở đầu cột phải: 8 kiểu dựng sẵn cho đám mây (Vùng màu, Lagoon, Mực tàu, Khối màu, Chấm in, Kim tuyến, Ô nền, Đêm). Bấm một kiểu, hoặc dùng **← Trước / Sau →** để đổi lần lượt; bật **Tự đổi kiểu** để các kiểu tự chạy nối nhau (chỉnh số giây mỗi kiểu). Mỗi kiểu thay toàn bộ phong cách như một preset, còn tỉ lệ khung, cỡ xuất và các vùng màu đã tìm được giữ nguyên. Toàn bộ code nằm trong `js/mode2.js`; xoá dòng `<script src="js/mode2.js">` trong `index.html` là mode này ẩn hoàn toàn.
+Nút **Mode 2** mở một bầu trời có mây bay ngang, làm từ các ảnh mây trong `assets/mode2/` (hiện có `cloud-1.png`; thêm ảnh mới thì ghi tên file vào danh sách `SPRITES` đầu `js/mode2.js`). Ảnh mây có nền sáng trơn sẽ được tự tách nền khi tải, nên các đám mây chồng lên nhau gọn gàng.
+
+- **Sinh ngẫu nhiên**: mỗi đám mây có một độ xa gần ngẫu nhiên. Mây gần to hơn, bay nhanh hơn và nằm trên; mây xa nhỏ, chậm (hiệu ứng chiều sâu). Mây bay ra khỏi khung sẽ quay lại từ phía bên kia với kích thước, độ cao và chiều lật mới.
+- **Chuyển động**: bật / tắt **Mây bay**, **Tốc độ**, **Hướng bay** (sang phải / sang trái), **Gió thổi không đều** (tốc độ lúc nhanh lúc chậm) và **Bồng bềnh** (nhấp nhô lên xuống).
+- **Mây**: **Số mây**, **Mây nhỏ nhất**, **Mây to nhất**, **Lật ngẫu nhiên**, màu **Nền trời**, và **Tạo mây mới** để ra một bố cục khác.
+- **Hiển thị**: mặc định là **Mây gốc**; bấm **ASCII** để xem bản ký tự (màu ký tự lấy từ mây). Quay video bằng nút Quay để lưu chuyển động.
+
+Toàn bộ code nằm trong `js/mode2.js`; xoá dòng `<script src="js/mode2.js">` trong `index.html` là mode này ẩn hoàn toàn.
 
 ## Ghi chú
 

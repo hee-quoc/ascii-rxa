@@ -256,11 +256,18 @@ function maskRuns(m, cols, rows) {
 function render(time) {
   if (!source) return;
   if (source.kind === 'sample') GL.drawDragon(dragonCanvas, time);
+  if (source.kind === 'mode2') GL.mode2.draw(time);
   const [sw, sh] = srcSize(source); if (!sw || !sh) return;
   const ar = state.frame === 'source' ? sw / sh : +state.frame;
   const s = state.cell, outW = +state.size, outH = Math.round(outW / ar);
   const cols = Math.max(1, Math.floor(outW / s)), rows = Math.max(1, Math.floor(outH / s));
   const W = cols * s, H = rows * s;
+  if (source.kind === 'mode2' && GL.mode2.plain) { // mode 2's plain view: the clouds as drawn, no glyphs
+    setSize(out, W, H); octx.globalAlpha = 1; octx.globalCompositeOperation = 'source-over'; octx.imageSmoothingQuality = 'high';
+    drawCover(octx, source.el, sw, sh, W, H);
+    lastInfo = { cols, rows, W, H, s, brows: 0, bcols: 0, blk: 1, kinds: new Uint8Array(0), cellRuns: null, plain: true }; updateMeta();
+    return;
+  }
   [out, maskC, inkC, imgC].forEach(c => setSize(c, W, H));
   setSize(sampC, cols, rows); setSize(colC, cols, rows);
 
@@ -399,7 +406,7 @@ function drawLabel(W, H) {
 
 let recording = false;
 function loop(time) {
-  const animated = (source && (source.kind === 'sample' || (source.kind === 'video' && !source.el.paused))) || state.flicker > 0 || recording;
+  const animated = (source && (source.kind === 'sample' || (source.kind === 'mode2' && GL.mode2.moving) || (source.kind === 'video' && !source.el.paused))) || state.flicker > 0 || recording;
   if (dirty || animated) { dirty = false; render(time); }
   requestAnimationFrame(loop);
 }
@@ -713,21 +720,21 @@ async function loadDemo(url, look, tag) {
 // Small bold cells so the swirls read; on the image's own off-white, darker = denser (invert)
 const useCloud = () => loadDemo('assets/cloud.jpg', () => Object.assign(state, { color: 'zones', cell: 10, bold: true, invert: true, bg: '#F6F5F5', imgOpacity: 0, patch: false, label: '' }));
 $('#cloudBtn').addEventListener('click', useCloud);
-// mode 2: the cloud demo with a row of looks to switch between, all in js/mode2.js;
-// without that script the button stays hidden
+// mode 2: drifting clouds, all in js/mode2.js; without that script the button stays hidden
 if (GL.mode2) {
-  GL.mode2.mount($('.rail'), {
-    // a look replaces the whole style, like a preset; the frame, output size and detected zones stay
-    apply(look) {
-      const keep = { frame: state.frame, size: state.size, zones: state.zones, zoneN: state.zoneN, zoneTol: state.zoneTol };
-      state = withInks(clone({ ...DEFAULTS, ...look, ...keep }));
-      if (state.color === 'zones' && !state.zones.length) detectZones();
-      changed();
-    },
-    open: look => loadDemo(GL.mode2.src, () => { state = withInks(clone({ ...DEFAULTS, ...look, frame: state.frame, size: state.size })); }, 'mode2'),
+  GL.mode2.mount($('.rail'), what => {
+    if (what === 'bg') { state.bg = GL.mode2.bg; syncUI(); }
+    dirty = true;
   });
   $('#mode2Btn').hidden = false;
-  $('#mode2Btn').addEventListener('click', () => GL.mode2.start());
+  $('#mode2Btn').addEventListener('click', () => GL.mode2.ready.then(() => {
+    clearVideo(); GL.mode2.restart();
+    // the ASCII view colors each glyph from the clouds; light sky, so darker = denser
+    state = withInks(clone({ ...DEFAULTS, color: 'source', sat: 1.2, cell: 9, bold: true, invert: true, contrast: 1.25, cut: 0.04,
+      bg: GL.mode2.bg, frame: state.frame, size: state.size }));
+    source = { kind: 'mode2', el: GL.mode2.canvas, name: 'mode2', tag: 'mode2' };
+    GL.mode2.draw(performance.now()); detectZones(); $('#playBtn').hidden = true; changed();
+  }));
 }
 function updatePlayLabel() { if (source?.kind === 'video') $('#playBtn').textContent = source.el.paused ? t('play') : t('pause'); }
 $('#playBtn').addEventListener('click', () => {
@@ -834,6 +841,7 @@ function buildSvg(fonts) {
   svgCells = [];
   try { render(performance.now()); } finally { var cells = svgCells; svgCells = null; }
   const { W, H, s, bcols, brows, blk, kinds } = lastInfo, f = v => +v.toFixed(2);
+  if (lastInfo.plain) return `<svg xmlns="http://www.w3.org/2000/svg" xmlns:xlink="http://www.w3.org/1999/xlink" width="${W}" height="${H}" viewBox="0 0 ${W} ${H}"><image width="${W}" height="${H}" xlink:href="${out.toDataURL('image/png')}"/></svg>`;
   const fs = f(s * state.fscale), weight = state.bold ? 700 : 500, maxW = s * 0.94;
   const drop = baseDrop(weight, fs);
   const defs = [], shapeIds = {}, glyphIds = {}, groups = new Map();
